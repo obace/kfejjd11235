@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>仙姑灵签 - 大姨子的诱惑</title>
+<script src="/js/telegram-web-app.js"></script>
+<style nonce="<%= nonce %>">
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Noto Sans SC','Segoe UI',Roboto,sans-serif;
+  background:radial-gradient(circle at 50% 18%, #3b1322 0%, #1a0b16 52%, #0c070d 100%);
+  min-height:100vh;color:#fce7f3;padding:16px;padding-bottom:100px;overflow-x:hidden;position:relative;
+}
+body::before{
+  content:'';position:fixed;top:-20%;left:50%;transform:translateX(-50%);width:90vw;height:90vw;max-width:520px;max-height:520px;
+  border-radius:50%;background:radial-gradient(circle,rgba(251,191,36,0.14) 0%,rgba(244,63,94,0.06) 50%,transparent 70%);pointer-events:none;z-index:0;
+}
+.head,.bar,.stage{max-width:520px;margin-left:auto;margin-right:auto;position:relative;z-index:1}
+.head{text-align:center;margin:6px auto 16px;position:relative}
+.back-btn{
+  position:absolute;left:0;top:4px;display:inline-flex;align-items:center;gap:4px;
+  font-size:.76rem;color:#fde68a;text-decoration:none;background:rgba(45,18,28,.75);
+  border:1px solid rgba(251,191,36,.35);padding:5px 11px;border-radius:14px;backdrop-filter:blur(8px);
+}
+.back-btn:hover{background:rgba(70,28,42,.85);color:#fff}
+.head h1{font-size:1.45rem;color:#fef3c7;text-shadow:0 2px 10px rgba(245,158,11,.4);letter-spacing:1.5px}
+.head .sub{font-size:.75rem;color:#fbcfe8;opacity:.88;margin-top:4px}
+
+.bar{
+  background:rgba(38,14,24,.72);backdrop-filter:blur(12px);border-radius:18px;
+  padding:13px 16px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.45);
+  border:1px solid rgba(251,191,36,.28);
+}
+.bar .row{display:flex;justify-content:space-between;align-items:center;font-size:.82rem;color:#fde68a}
+.bar .row+.row{margin-top:8px}
+.bar b{color:#fbbf24;font-size:.92rem}
+
+.shrine-card{
+  background:rgba(34,12,22,.75);backdrop-filter:blur(12px);border-radius:22px;
+  padding:22px 18px;box-shadow:0 10px 30px rgba(0,0,0,.5);
+  border:1px solid rgba(251,191,36,.25);text-align:center;
+}
+.cylinder-wrap{
+  margin:10px auto 18px;width:136px;height:136px;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(circle,rgba(245,158,11,0.28) 0%,rgba(225,29,72,0.12) 65%,transparent 100%);
+  border:1px solid rgba(251,191,36,0.4);
+  box-shadow:0 0 35px rgba(245,158,11,0.2),inset 0 0 20px rgba(251,191,36,0.15);
+  cursor:pointer;user-select:none;transition:transform .2s;
+}
+.cylinder-wrap:active{transform:scale(.95)}
+.cylinder-emoji{font-size:3.6rem;line-height:1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5))}
+.cylinder-hint{font-size:.74rem;color:#fde68a;margin-top:8px;font-weight:600;letter-spacing:1px}
+
+@keyframes cylinderShake{
+  0%,100%{transform:rotate(0deg) translateY(0)}
+  15%{transform:rotate(-15deg) translateY(-6px)}
+  30%{transform:rotate(15deg) translateY(3px)}
+  45%{transform:rotate(-18deg) translateY(-8px)}
+  60%{transform:rotate(18deg) translateY(3px)}
+  75%{transform:rotate(-12deg) translateY(-4px)}
+  90%{transform:rotate(12deg) translateY(0)}
+}
+.shaking{animation:cylinderShake .42s ease-in-out infinite}
+
+.tier-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;text-align:left}
+.tier-item{
+  background:rgba(255,255,255,.04);border:1px solid rgba(251,191,36,.18);
+  border-radius:14px;padding:10px 12px;
+}
+.tier-item .t-head{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;font-weight:700}
+.tier-item .t-prob{font-size:.68rem;color:#d1d5db;opacity:.8}
+.tier-item .t-desc{font-size:.74rem;color:#fef3c7;margin-top:4px;font-weight:600}
+
+/* 签文卷轴 */
+@keyframes scrollUnfold{
+  from{opacity:0;transform:scale(.92) translateY(12px)}
+  to{opacity:1;transform:scale(1) translateY(0)}
+}
+.scroll-card{
+  animation:scrollUnfold .4s ease-out;
+  background:linear-gradient(165deg,rgba(68,18,30,.92) 0%,rgba(32,10,20,.96) 100%);
+  border:1.5px solid rgba(251,191,36,.55);border-radius:22px;padding:24px 18px;
+  box-shadow:0 12px 36px rgba(0,0,0,.6),inset 0 0 28px rgba(251,191,36,.1);
+  text-align:center;position:relative;
+}
+.scroll-badge{
+  display:inline-block;padding:4px 14px;border-radius:999px;font-size:.82rem;font-weight:800;
+  background:rgba(251,191,36,.2);color:#fde68a;border:1px solid rgba(251,191,36,.5);
+}
+.scroll-title{font-size:1.55rem;font-weight:900;color:#fff;margin:12px 0 10px;letter-spacing:3px;text-shadow:0 2px 8px rgba(245,158,11,.4)}
+.scroll-poem{
+  font-size:.95rem;color:#fef3c7;line-height:1.9;white-space:pre-line;
+  padding:14px 10px;margin:12px 0;
+  border-top:1px dashed rgba(251,191,36,.35);border-bottom:1px dashed rgba(251,191,36,.35);
+}
+.scroll-stats{
+  background:rgba(0,0,0,.35);border:1px solid rgba(251,191,36,.2);
+  border-radius:14px;padding:12px 14px;text-align:left;font-size:.82rem;color:#f3f4f6;margin-top:14px;
+}
+.scroll-stats .s-row{display:flex;justify-content:space-between;align-items:center}
+.scroll-stats .s-row+.s-row{margin-top:8px}
+.scroll-stats .s-row.total{padding-top:8px;border-top:1px solid rgba(255,255,255,.1);color:#6ee7b7;font-size:.9rem}
+.scroll-note{font-size:.74rem;color:#fbcfe8;opacity:.8;margin-top:14px}
+
+.actbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:10;padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+  background:rgba(20,8,14,.85);backdrop-filter:blur(10px);box-shadow:0 -4px 18px rgba(0,0,0,.45);
+  display:flex;justify-content:center;
+}
+.btn{
+  flex:0 1 100%;max-width:420px;border:none;border-radius:16px;padding:14px;
+  font-size:1rem;font-weight:800;color:#fff;cursor:pointer;transition:transform .1s,opacity .2s;letter-spacing:1px;
+  background:linear-gradient(135deg,#e11d48,#d97706);box-shadow:0 6px 18px rgba(225,29,72,.4);
+}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
+.hidden{display:none !important}
+
+#toast{
+  position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-20px);
+  background:rgba(68,20,32,.95);border:1px solid rgba(251,191,36,.45);color:#fef3c7;
+  padding:11px 20px;border-radius:22px;font-size:.86rem;opacity:0;transition:all .3s;
+  z-index:100;pointer-events:none;max-width:88%;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.45);
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="head">
+  <a id="btnBackPanel" href="/" class="back-btn">← 返回面板</a>
+  <h1>🎋 仙姑灵签</h1>
+  <div class="sub">每月一签 · 诚心祈福 · 剩余流量最高直接翻倍</div>
+</div>
+
+<div class="bar">
+  <div class="row"><span>📅 祈福月份</span><b><span id="curMonth">-</span></b></div>
+  <div class="row"><span>💧 当前剩余流量</span><b><span id="curRemaining">加载中...</span></b></div>
+  <div class="row"><span>🏮 本月求签状态</span><b><span id="curStatus">-</span></b></div>
+</div>
+
+<div class="stage">
+  <!-- 未绑定 TG 提示 -->
+  <div id="stageUnbound" class="shrine-card hidden">
+    <div style="font-size:3rem;margin-bottom:10px">⚠️</div>
+    <h3 style="color:#fde68a;font-size:1.05rem;margin-bottom:8px">尚未绑定 Telegram 账号</h3>
+    <p style="font-size:.82rem;color:#f3f4f6;line-height:1.6;margin-bottom:16px">
+      每月求签需要先绑定 Telegram 账号。<br>请先返回节点面板完成绑定后再来求签祈福！
+    </p>
+    <a href="/" style="display:inline-block;background:linear-gradient(135deg,#0284c7,#2563eb);color:#fff;text-decoration:none;padding:10px 22px;border-radius:14px;font-size:.85rem;font-weight:700">返回面板绑定 TG</a>
+  </div>
+
+  <!-- 摇签祈福台 -->
+  <div id="stageDraw" class="shrine-card hidden">
+    <div id="cylinderBox" class="cylinder-wrap" title="点击摇签">
+      <div class="cylinder-emoji">🏮</div>
+      <div class="cylinder-hint">点击摇签筒</div>
+    </div>
+    <div style="font-size:.8rem;color:#fde68a;margin-bottom:6px">✨ 签位概率与流量加成（按当前剩余流量计算）</div>
+    <div class="tier-grid">
+      <div class="tier-item">
+        <div class="t-head"><span style="color:#fda4af">🏮 上上签</span><span class="t-prob">10%</span></div>
+        <div class="t-desc">剩余流量 +100% (翻倍)</div>
+      </div>
+      <div class="tier-item">
+        <div class="t-head"><span style="color:#fdba74">🌸 上吉签</span><span class="t-prob">25%</span></div>
+        <div class="t-desc">剩余流量 +50%</div>
+      </div>
+      <div class="tier-item">
+        <div class="t-head"><span style="color:#fde047">🎋 中吉签</span><span class="t-prob">40%</span></div>
+        <div class="t-desc">剩余流量 +25%</div>
+      </div>
+      <div class="tier-item">
+        <div class="t-head"><span style="color:#6ee7b7">🍀 小吉签</span><span class="t-prob">25%</span></div>
+        <div class="t-desc">剩余流量 +10%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 灵签结果卷轴 -->
+  <div id="stageResult" class="scroll-card hidden">
+    <div id="resBadge" class="scroll-badge">🏮 上上签</div>
+    <div id="resTitle" class="scroll-title">「天降横财」</div>
+    <div id="resPoem" class="scroll-poem"></div>
+    <div id="resStats" class="scroll-stats"></div>
+    <div id="resNote" class="scroll-note">✨ 每月 1 日 00:00 重置求签次数</div>
+  </div>
+</div>
+
+<div id="actBar" class="actbar hidden">
+  <button id="btnDraw" class="btn">🏮 诚心摇签（本月限 1 次）</button>
+</div>
+
+<div id="toast"></div>
+
+<script src="/js/fortune.js"></script>
+</body>
+</html>
