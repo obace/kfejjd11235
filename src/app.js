@@ -36,6 +36,7 @@ const dbModule = require('./services/database');
 const { getDb } = dbModule;
 const deployService = require('./services/deploy');
 const { configEvents } = require('./services/configEvents');
+const { notify } = require('./services/notify');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -188,11 +189,33 @@ cron.schedule('0 4 * * *', async () => {
     if (noCheckinEnabled) {
       const rawDays = parseInt(dbModule.getSetting('auto_freeze_no_checkin_days'), 10);
       const days = Number.isFinite(rawDays) && rawDays >= 1 ? rawDays : 30;
+
+      // 1. 删除已超期未签到用户
       const deleted = dbModule.autoDeleteNoCheckinUsers(days);
       if (deleted.length > 0) {
         logger.info({ count: deleted.length, users: deleted.map(u => u.username) }, '自动删除长期未签到用户');
         dbModule.addAuditLog(null, 'auto_delete_no_checkin', `自动删除 ${deleted.length} 个用户 (${days}天未签到): ${deleted.map(u => u.username).join(', ')}`, 'system');
         needsSync = true;
+      }
+
+      // 2. 发送前 1 天注销预警（提前 24 小时预警通知，防重保证每轮周期仅发一次）
+      try {
+        const warningUsers = dbModule.getNoCheckinUsersForWarning(days);
+        if (warningUsers.length > 0) {
+          logger.info({ count: warningUsers.length, users: warningUsers.map(u => u.username) }, '发送未签到注销前预警');
+          for (const u of warningUsers) {
+            try {
+              const ok = await notify.warnNoCheckin(u, days - 1, days);
+              if (ok) {
+                dbModule.addAuditLog(u.id, 'warn_no_checkin', `发送 ${days - 1} 天未签到注销预警通知`, 'system');
+              }
+            } catch (wErr) {
+              logger.warn({ err: wErr.message, userId: u.id }, '发送未签到预警失败');
+            }
+          }
+        }
+      } catch (warnErr) {
+        logger.error({ err: warnErr }, '查询或发送未签到预警失败');
       }
     }
 

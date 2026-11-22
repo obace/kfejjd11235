@@ -644,6 +644,7 @@ module.exports = {
   unfreezeUser: callWithDb((...a) => userRepo.unfreezeUser(...a)),
   autoFreezeNoCheckinUsers: callWithDb((...a) => userRepo.autoFreezeNoCheckinUsers(...a)),
   autoDeleteNoCheckinUsers: callWithDb((...a) => userRepo.autoDeleteNoCheckinUsers(...a)),
+  getNoCheckinUsersForWarning: callWithDb((...a) => userRepo.getNoCheckinUsersForWarning(...a)),
   resetSubToken: callWithDb((...a) => userRepo.resetSubToken(...a)),
   setUserExpiry: callWithDb((...a) => userRepo.setUserExpiry(...a)),
   autoFreezeExpiredUsers: callWithDb((...a) => userRepo.autoFreezeExpiredUsers(...a)),

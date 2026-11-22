@@ -332,6 +332,36 @@ function unfreezeUser(id) {
   }
 }
 
+// 获取即将因未签到被删除的预警用户列表（默认 29 天未签到，即 30 天规则的前 1 天）
+function getNoCheckinUsersForWarning(days = 30) {
+  if (days <= 1) return [];
+  const warnDays = days - 1;
+  const deleteCutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  const warnCutoff = new Date(Date.now() - warnDays * 86400000).toISOString().slice(0, 10);
+
+  const users = _getDb().prepare(`
+    SELECT u.id, u.username, u.telegram_id, u.created_at,
+      (SELECT MAX(date) FROM tg_checkin WHERE user_id = u.id) AS last_checkin
+    FROM users u
+    WHERE u.is_admin = 0
+      AND u.telegram_id IS NOT NULL
+      AND u.telegram_id != ''
+  `).all().filter(u => {
+    const baseDate = u.last_checkin || String(u.created_at || '').slice(0, 10);
+    return baseDate && baseDate >= deleteCutoff && baseDate <= warnCutoff;
+  });
+
+  const checkLogStmt = _getDb().prepare(`
+    SELECT 1 FROM audit_log
+    WHERE user_id = ?
+      AND action = 'warn_no_checkin'
+      AND created_at >= datetime('now', '-7 days')
+    LIMIT 1
+  `);
+
+  return users.filter(u => !checkLogStmt.get(u.id));
+}
+
 // 删除超过 days 天未在 TG 签到的已绑定 TG 用户（从未签到的按注册日期起算；未绑定 TG 的用户跳过）
 function autoDeleteNoCheckinUsers(days = 30) {
   const cutoffDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
@@ -387,6 +417,6 @@ module.exports = {
   createEmailUser, createInvitedEmailUser, createOAuthUser, getUserCount, getTgBoundUserCount,
   grantTgBindGift, deleteUserCascade, getUnboundUsersForDeletion,
   getAllUsers, getAllUsersPaged, blockUser, setUserTrafficLimit,
-  isTrafficExceeded, freezeUser, unfreezeUser, autoFreezeNoCheckinUsers, autoDeleteNoCheckinUsers, resetSubToken,
+  isTrafficExceeded, freezeUser, unfreezeUser, autoFreezeNoCheckinUsers, autoDeleteNoCheckinUsers, getNoCheckinUsersForWarning, resetSubToken,
   setUserExpiry, autoFreezeExpiredUsers
 };

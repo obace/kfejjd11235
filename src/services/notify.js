@@ -139,6 +139,18 @@ const notify = {
     if (!user || !user.telegram_id) return false;
     const text = `⚠️ <b>流量预警</b>\n\n您今日已用 <b>${usedGb.toFixed(2)} GB</b>，已超出预警阈值。\n\n如非本人使用，请尽快重置订阅。\n本人使用请忽略。`;
     return await sendToUser(user.telegram_id, text);
+  },
+  // 用户长期未签到即将删除注销预警通知（提前 1 天私聊预警）
+  async warnNoCheckin(user, inactiveDays, deleteDays) {
+    if (!user || !user.telegram_id) return false;
+    const text = `⚠️ <b>账号即将注销预警</b>\n\n`
+      + `亲爱的 <b>${escTg(user.username)}</b>：\n`
+      + `系统检测到您已连续 <b>${inactiveDays} 天</b> 未在 Telegram 签到。\n\n`
+      + `📌 <b>平台规则</b>：\n`
+      + `根据平台保活规则，若连续 <b>${deleteDays} 天</b> 未签到，您的账号及节点订阅将在 <b>明日凌晨</b> 被系统自动注销清理。\n\n`
+      + `💡 <b>如何保留账号？</b>\n`
+      + `无需繁琐操作，直接在此处回复发送：<code>/checkin</code> 即可立即完成签到并重置保活周期！`;
+    return await sendToUser(user.telegram_id, text);
   }
 };
 
