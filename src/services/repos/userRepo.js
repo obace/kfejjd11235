@@ -269,7 +269,9 @@ function getUnboundUsersForDeletion(graceDays, policyStartMs) {
 
 function getAllUsers() {
   return _getDb().prepare(`
-    SELECT u.*, COALESCE(tut.total_up, 0) + COALESCE(tut.total_down, 0) as total_traffic
+    SELECT u.*,
+      COALESCE(tut.total_up, 0) + COALESCE(tut.total_down, 0) as total_traffic,
+      COALESCE(tut.free_bytes, 0) as free_bytes
     FROM users u
     LEFT JOIN traffic_user_total tut ON u.id = tut.user_id
     ORDER BY total_traffic DESC
@@ -291,7 +293,9 @@ function getAllUsersPaged(limit = 20, offset = 0, search = '', sortBy = 'total_t
   const orderCol = allowedSorts[sortBy] || 'total_traffic';
   const dir = sortDir === 'ASC' ? 'ASC' : 'DESC';
   const rows = _getDb().prepare(`
-    SELECT u.*, COALESCE(tut.total_up, 0) + COALESCE(tut.total_down, 0) as total_traffic
+    SELECT u.*,
+      COALESCE(tut.total_up, 0) + COALESCE(tut.total_down, 0) as total_traffic,
+      COALESCE(tut.free_bytes, 0) as free_bytes
     FROM users u
     LEFT JOIN traffic_user_total tut ON u.id = tut.user_id
     ${where}

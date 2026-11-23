@@ -53,6 +53,13 @@ test('traffic_user_total is updated incrementally and used by user list queries'
       user_id INTEGER PRIMARY KEY,
       total_up INTEGER DEFAULT 0,
       total_down INTEGER DEFAULT 0,
+      free_bytes INTEGER DEFAULT 0,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE traffic_site_total (
+      id INTEGER PRIMARY KEY,
+      total_up INTEGER DEFAULT 0,
+      total_down INTEGER DEFAULT 0,
       updated_at TEXT DEFAULT (datetime('now'))
     );
   `);

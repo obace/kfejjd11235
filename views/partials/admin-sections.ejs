@@ -27,7 +27,7 @@
             <th class="py-3 px-4">用户</th>
             <th class="py-3 px-4 cursor-pointer hover:text-rose-400 transition select-none js-user-sort" data-sort-col="id">ID <span id="sort-icon-id" class="text-xs"></span></th>
             <th class="py-3 px-4 cursor-pointer hover:text-rose-400 transition select-none js-user-sort" data-sort-col="trust_level">用户组 <span id="sort-icon-trust_level" class="text-xs"></span></th>
-            <th class="py-3 px-4 cursor-pointer hover:text-rose-400 transition select-none js-user-sort" data-sort-col="total_traffic">已用/限额 <span id="sort-icon-total_traffic" class="text-xs">▼</span></th>
+            <th class="py-3 px-4 cursor-pointer hover:text-rose-400 transition select-none js-user-sort" data-sort-col="total_traffic">已用/剩余 <span id="sort-icon-total_traffic" class="text-xs">▼</span></th>
             <th class="py-3 px-4 cursor-pointer hover:text-rose-400 transition select-none js-user-sort" data-sort-col="expires_at">到期 <span id="sort-icon-expires_at" class="text-xs"></span></th>
             <th class="py-3 px-4 cursor-pointer hover:text-rose-400 transition select-none js-user-sort" data-sort-col="last_login">最后活跃 <span id="sort-icon-last_login" class="text-xs"></span></th>
             <th class="py-3 px-4">状态</th>
@@ -147,13 +147,17 @@
         const blockBtnClass = u.is_blocked ? 'text-emerald-400' : 'text-red-400';
         const blockBtnText = u.is_blocked ? '解封' : '封禁';
         const limitText = u.traffic_limit < 0 ? '∞' : _fmtBytes(u.traffic_limit);
+        const billed = Math.max(0, (u.total_traffic || 0) - (u.free_bytes || 0));
+        const remaining = u.traffic_limit < 0 ? -1 : Math.max(0, u.traffic_limit - billed);
+        const remText = remaining < 0 ? '∞' : _fmtBytes(remaining);
+        const remClass = (remaining === 0 && u.traffic_limit >= 0) ? 'text-red-400 font-medium' : 'text-cyan-400';
         const expiryText = u.expires_at ? u.expires_at.slice(0,10) : '永久';
         const expiryClass = u.expires_at && new Date(u.expires_at) < new Date() ? 'text-red-400' : 'text-gray-400';
-        return { u, safeUsername, safeAvatar, safeLastLogin, safeUserId, statusClass, statusText, blockBtnClass, blockBtnText, limitText, expiryText, expiryClass };
+        return { u, safeUsername, safeAvatar, safeLastLogin, safeUserId, statusClass, statusText, blockBtnClass, blockBtnText, limitText, remText, remClass, expiryText, expiryClass };
       });
 
       // 桌面端表格
-      tbody.innerHTML = rowsHtml.map(({u, safeUsername, safeAvatar, safeLastLogin, safeUserId, statusClass, statusText, blockBtnClass, blockBtnText, limitText, expiryText, expiryClass}) => {
+      tbody.innerHTML = rowsHtml.map(({u, safeUsername, safeAvatar, safeLastLogin, safeUserId, statusClass, statusText, blockBtnClass, blockBtnText, limitText, remText, remClass, expiryText, expiryClass}) => {
         return `<tr class="border-b border-white/5 hover:bg-white/[0.02]">
           <td class="py-3 px-4 flex items-center gap-2">
             <img src="${safeAvatar}" class="w-6 h-6 rounded-full ring-1 ring-white/10 bg-gray-800 js-avatar-fallback">
@@ -163,7 +167,7 @@
           <td class="py-3 px-4 text-xs text-gray-500">${safeUserId}</td>
           <td class="py-3 px-4 text-xs"><span class="cursor-pointer hover:underline js-set-group" data-user-id="${safeUserId}" data-current-level="${u.trust_level||0}">${_groupHtml(u.trust_level)}</span></td>
           <td class="py-3 px-4 text-xs text-gray-400">
-            ${_fmtBytes(u.total_traffic || 0)} / <span class="cursor-pointer text-cyan-400 hover:underline js-set-traffic-limit" data-user-id="${safeUserId}" data-current-limit="${u.traffic_limit || 0}">${limitText}</span>
+            ${_fmtBytes(u.total_traffic || 0)} / <span class="cursor-pointer ${remClass} hover:underline js-set-traffic-limit" data-user-id="${safeUserId}" data-current-limit="${u.traffic_limit || 0}" title="总限额: ${limitText} (点击修改)">${remText}</span>
           </td>
           <td class="py-3 px-4 text-xs"><span class="cursor-pointer ${expiryClass} hover:underline js-set-expiry" data-user-id="${safeUserId}">${expiryText}</span></td>
           <td class="py-3 px-4 text-xs text-gray-500">${safeLastLogin}</td>
@@ -178,7 +182,7 @@
       }).join('');
 
       // 移动端卡片
-      cards.innerHTML = rowsHtml.map(({u, safeUsername, safeAvatar, safeLastLogin, safeUserId, statusClass, statusText, blockBtnClass, blockBtnText, limitText, expiryText, expiryClass}) => {
+      cards.innerHTML = rowsHtml.map(({u, safeUsername, safeAvatar, safeLastLogin, safeUserId, statusClass, statusText, blockBtnClass, blockBtnText, limitText, remText, remClass, expiryText, expiryClass}) => {
         return `<div class="glass rounded-2xl p-4 space-y-2">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -191,7 +195,7 @@
           <div class="grid grid-cols-2 gap-1.5 text-xs">
             <div><span class="text-gray-500">ID</span><span class="block text-gray-400 mt-0.5">${safeUserId}</span></div>
             <div><span class="text-gray-500">用户组</span><span class="block mt-0.5 cursor-pointer js-set-group" data-user-id="${safeUserId}" data-current-level="${u.trust_level||0}">${_groupHtml(u.trust_level)}</span></div>
-            <div><span class="text-gray-500">流量</span><span class="block text-gray-400 mt-0.5">${_fmtBytes(u.total_traffic || 0)} / <span class="cursor-pointer text-cyan-400 js-set-traffic-limit" data-user-id="${safeUserId}" data-current-limit="${u.traffic_limit || 0}">${limitText}</span></span></div>
+            <div><span class="text-gray-500">已用/剩余</span><span class="block text-gray-400 mt-0.5">${_fmtBytes(u.total_traffic || 0)} / <span class="cursor-pointer ${remClass} js-set-traffic-limit" data-user-id="${safeUserId}" data-current-limit="${u.traffic_limit || 0}" title="总限额: ${limitText} (点击修改)">${remText}</span></span></div>
             <div><span class="text-gray-500">到期</span><span class="block mt-0.5 cursor-pointer ${expiryClass} js-set-expiry" data-user-id="${safeUserId}">${expiryText}</span></div>
             <div class="col-span-2"><span class="text-gray-500">最后活跃</span><span class="text-gray-500 ml-2">${safeLastLogin}</span></div>
           </div>
