@@ -54,6 +54,8 @@ test('traffic_user_total is updated incrementally and used by user list queries'
       total_up INTEGER DEFAULT 0,
       total_down INTEGER DEFAULT 0,
       free_bytes INTEGER DEFAULT 0,
+
+
       updated_at TEXT DEFAULT (datetime('now'))
     );
     CREATE TABLE traffic_site_total (
@@ -62,11 +64,21 @@ test('traffic_user_total is updated incrementally and used by user list queries'
       total_down INTEGER DEFAULT 0,
       updated_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE identity_gift_ledger (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      identifier_type TEXT NOT NULL,
+      identifier_val TEXT NOT NULL UNIQUE,
+      trial_granted INTEGER DEFAULT 0,
+      tg_gift_granted INTEGER DEFAULT 0,
+      first_claimed_at TEXT DEFAULT (datetime('now')),
+      last_claimed_at TEXT DEFAULT (datetime('now')),
+      last_user_id INTEGER
+    );
   `);
 
   db.prepare(`
     INSERT INTO users (id, username, name, sub_token, traffic_limit)
-    VALUES (1, 'u1', 'U1', 't1', 100), (2, 'u2', 'U2', 't2', 0)
+    VALUES (1, 'u1', 'U1', 't1', 100), (2, 'u2', 'U2', 't2', -1), (3, 'u3', 'U3', 't3', 0)
   `).run();
 
   trafficRepo.init({
@@ -88,10 +100,11 @@ test('traffic_user_total is updated incrementally and used by user list queries'
   assert.deepEqual(total, { total_up: 50, total_down: 50 });
 
   const list = userRepo.getAllUsersPaged(20, 0, '', 'total_traffic', 'DESC');
-  assert.equal(list.total, 2);
+  assert.equal(list.total, 3);
   assert.equal(list.rows[0].id, 1);
   assert.equal(list.rows[0].total_traffic, 100);
 
   assert.equal(userRepo.isTrafficExceeded(1), true);
   assert.equal(userRepo.isTrafficExceeded(2), false);
+  assert.equal(userRepo.isTrafficExceeded(3), true);
 });

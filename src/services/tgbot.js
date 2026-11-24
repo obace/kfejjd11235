@@ -447,7 +447,9 @@ bot.processUpdate = function (update) {
   return _origProcessUpdate(update);
 };
 
-// 绑定 TG 后发放注册赠送流量（仅未发放过的账号），并触发节点同步；返回提示文案后缀
+
+// 绑定 TG 后发放注册赠送流量（防刷账本控制，同身份/同 TG 仅发放一次），并触发节点同步；返回提示文案后缀
+
 function _afterTgBindGrant(userId) {
   try {
     const res = db.grantTgBindGift(userId);
@@ -456,6 +458,8 @@ function _afterTgBindGrant(userId) {
       try { db.addAuditLog(userId, 'tg_bind_gift', '绑定 TG 发放注册赠送流量', 'tg_bind'); } catch (_) {}
       const label = res.bytes < 0 ? '超大流量' : `${Math.round(res.bytes / 1073741824)}GB 流量`;
       return `\n🎁 已到账 ${label}！`;
+    } else if (res && res.alreadyClaimed) {
+      return `\n⚠️ 提示：该账号（或 Telegram）此前已领取过新人赠送流量，无法重复领取。请通过每日 /checkin 签到或农场种植获取流量。`;
     }
   } catch (_) { /* 忽略发放失败，不影响绑定 */ }
   return '';

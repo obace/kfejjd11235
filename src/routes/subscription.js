@@ -258,10 +258,12 @@ function handleSubscription(cfg) {
     const usedBytes = (traffic.total_up || 0) + (traffic.total_down || 0);
     const billedBytes = traffic.billed_total != null ? traffic.billed_total : usedBytes;
     const exceeded = trafficLimit >= 0 && billedBytes >= trafficLimit;
-    const isUnboundZeroQuota = !user.is_admin && trafficLimit === 0 && usedBytes === 0 && !user.telegram_id;
 
-    // 若已超额但尚未标记冻结，顺带触发冻结与节点同步，确保节点侧立即拦截
-    if (exceeded && !user.is_frozen && trafficLimit > 0) {
+    const hasZeroQuota = !user.is_admin && trafficLimit === 0;
+
+    // 若已超额或0配额但尚未标记冻结，顺带触发冻结与节点同步，确保节点侧立即拦截
+    if ((exceeded || hasZeroQuota) && !user.is_frozen) {
+
       try {
         db.freezeUser(user.id, 'traffic_limit');
         user.is_frozen = 1;
@@ -271,8 +273,12 @@ function handleSubscription(cfg) {
     }
 
     let statusNotice = '';
-    if (isUnboundZeroQuota) {
-      statusNotice = '⚠️ 请先前往面板绑定 Telegram 机器人领取初始流量';
+
+    if (hasZeroQuota) {
+      statusNotice = user.telegram_id
+        ? '⚠️ 当前流量配额为 0，请前往面板或 TG 签到/农场获取流量'
+        : '⚠️ 请先前往面板绑定 Telegram 机器人领取初始流量';
+
     } else if (exceeded || (user.is_frozen && user.freeze_reason === 'traffic_limit')) {
       statusNotice = '⚠️ 流量已用尽，请前往面板或 TG 农场补充流量（恢复后自动解冻无需重拉订阅）';
     } else if (user.is_frozen && user.freeze_reason === 'tg_inactive') {
@@ -285,8 +291,10 @@ function handleSubscription(cfg) {
 
     db.addAuditLog(user.id, cfg.auditAction, `${cfg.auditLabel} [${clientType}] IP: ${clientIP}`, clientIP);
 
-    // 仅未绑定 TG 的 0 额度新号隐藏节点；已冻结/超额的老用户保留节点列表（节点端已移除其 UUID 无法连接，解冻后无需重新更新订阅即可直连）
-    const finalNodes = isUnboundZeroQuota ? [] : nodes;
+
+    // 0 额度用户坚决不返回任何节点；已冻结/超额的老用户保留节点列表由节点端阻断
+    const finalNodes = hasZeroQuota ? [] : nodes;
+
     const subInfo = `upload=${traffic.total_up}; download=${traffic.total_down}; total=${totalBytes}; expire=0`;
     const stateSuffix = user.is_frozen ? '_frozen' : (exceeded ? '_exceeded' : '');
     const finalAllowReason = allowReason === 'ok' ? `ok${stateSuffix}` : `${allowReason}${stateSuffix}`;

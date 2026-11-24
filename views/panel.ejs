@@ -41,7 +41,11 @@
         <div class="flex items-center" style="gap:14px">
           <svg style="width:38px;height:38px;flex-shrink:0" viewBox="0 0 24 24" fill="#29B6F6"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0h-.056zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
           <div>
-            <div style="color:#ffffff;font-size:17px;font-weight:700;line-height:1.4">🎁 绑定 Telegram，立即到账 <span style="color:#fcd34d;font-weight:800"><%= tgBindGiftLabel %></span> 流量</div>
+            <% if (trafficLimit === 0) { %>
+            <div style="color:#ffffff;font-size:17px;font-weight:700;line-height:1.4">🎁 体验流量已耗尽（或二次注册），绑定 Telegram 立即激活 <span style="color:#fcd34d;font-weight:800"><%= tgBindGiftLabel %></span> 流量</div>
+            <% } else { %>
+            <div style="color:#ffffff;font-size:17px;font-weight:700;line-height:1.4">🎁 体验流量已生效！绑定 Telegram，再到账 <span style="color:#fcd34d;font-weight:800"><%= tgBindGiftLabel %></span> 流量</div>
+            <% } %>
             <div style="color:rgba(207,250,254,0.92);font-size:13px;margin-top:5px">每日签到领种子 · 农场种菜收流量 · 随时查流量与订阅</div>
             <div style="display:inline-block;margin-top:8px;padding:3px 9px;border-radius:7px;background:rgba(251,191,36,0.16);border:1px solid rgba(251,191,36,0.45);color:#fde68a;font-size:12.5px;font-weight:600">⚠️ 注册后 7 天内未绑定将自动删除账号</div>
           </div>

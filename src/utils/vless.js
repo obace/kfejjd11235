@@ -53,6 +53,8 @@ function buildTrafficInfoLinks(trafficInfo, linkBuilder, brandSuffix = '') {
   if (trafficInfo.total > 0) {
     const remain = Math.max(0, trafficInfo.total - used);
     links.push(linkBuilder(`📊 剩余: ${formatBytes(remain)} | 已用: ${formatBytes(used)}`));
+  } else if (trafficInfo.total === 0) {
+    links.push(linkBuilder(`📊 流量配额: 0 B | 已用: ${formatBytes(used)}`));
   } else {
     links.push(linkBuilder(`📊 已用: ${formatBytes(used)} | 无限制`));
   }

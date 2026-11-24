@@ -29,6 +29,7 @@ function getNodeAllUserUuids(nodeId) {
     JOIN nodes n ON un.node_id = n.id
     WHERE un.node_id = ? AND u.is_blocked = 0 AND u.is_frozen = 0
       AND u.trust_level >= n.min_level
+      AND COALESCE(u.traffic_limit, 0) != 0
   `).all(nodeId);
 }
 

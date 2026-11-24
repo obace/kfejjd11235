@@ -252,6 +252,47 @@ function runMigrations(db) {
       }
     }
   } catch (err) { logger.debug({ err }, '初始化 traffic_site_total 失败'); }
+
+  // ─── 防刷账本：记录用户身份（OAuth/邮箱/Telegram）申领体验流量和 TG 礼包历史（即使删号也永久保留） ───
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS identity_gift_ledger (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        identifier_type TEXT NOT NULL,
+        identifier_val TEXT NOT NULL UNIQUE,
+        trial_granted INTEGER DEFAULT 0,
+        tg_gift_granted INTEGER DEFAULT 0,
+        first_claimed_at TEXT DEFAULT (datetime('now')),
+        last_claimed_at TEXT DEFAULT (datetime('now')),
+        last_user_id INTEGER
+      );
+      CREATE INDEX IF NOT EXISTS idx_identity_gift_ledger_val ON identity_gift_ledger(identifier_val);
+    `);
+
+    // 回填现存用户的身份与礼包状态
+    const users = db.prepare("SELECT id, auth_type, oauth_provider, oauth_subject, email, telegram_id, traffic_limit FROM users").all();
+    const insertLedger = db.prepare(`
+      INSERT INTO identity_gift_ledger (identifier_type, identifier_val, trial_granted, tg_gift_granted, last_user_id)
+      VALUES (?, ?, 1, ?, ?)
+      ON CONFLICT(identifier_val) DO UPDATE SET
+        trial_granted = 1,
+        tg_gift_granted = MAX(identity_gift_ledger.tg_gift_granted, excluded.tg_gift_granted),
+        last_user_id = excluded.last_user_id,
+        last_claimed_at = datetime('now')
+    `);
+    for (const u of users) {
+      const hasTgGift = (u.telegram_id && u.telegram_id !== '' && (u.traffic_limit || 0) > 0) ? 1 : 0;
+      if (u.telegram_id) {
+        insertLedger.run('tg', `tg:${u.telegram_id}`, hasTgGift, u.id);
+      }
+      if (u.oauth_provider && u.oauth_subject) {
+        insertLedger.run('oauth', `oauth:${u.oauth_provider}:${u.oauth_subject}`, hasTgGift, u.id);
+      }
+      if (u.email) {
+        insertLedger.run('email', `email:${u.email.toLowerCase().trim()}`, hasTgGift, u.id);
+      }
+    }
+  } catch (err) { logger.debug({ err }, '初始化 identity_gift_ledger 失败'); }
 }
 
 module.exports = { runMigrations };

@@ -2,14 +2,15 @@ const crypto = require('crypto');
 const { toSqlUtc } = require('../../utils/time');
 const logger = require('../logger');
 
-let _getDb, _getSetting, _addAuditLog, _ensureUserHasAllNodeUuids, _onUserCreated;
+let _getDb, _getSetting, _addAuditLog, _ensureUserHasAllNodeUuids, _onUserCreated, _notify;
 
 function init(deps) {
   _getDb = deps.getDb;
   _getSetting = deps.getSetting;
   _addAuditLog = deps.addAuditLog;
-  _ensureUserHasAllNodeUuids = deps.ensureUserHasAllNodeUuids;
+  _ensureUserHasAllNodeUuids = deps.ensureUserHasAllNodeUuids || (() => {});
   _onUserCreated = deps.onUserCreated || (() => {});
+  _notify = deps.notify;
 }
 
 function genSubToken() {
@@ -72,16 +73,61 @@ function resolveAvailableUsername(seed) {
   return `${base.slice(0, 24)}${Date.now().toString().slice(-8)}`;
 }
 
-function getDefaultSignupSettings() {
+const TRIAL_TRAFFIC_BYTES = 1073741824; // 1GB 体验流量
+
+function isEligibleForTrial({ oauthProvider, oauthSubject, email } = {}) {
+  const d = _getDb();
+  const keys = [];
+  if (oauthProvider && oauthSubject) keys.push(`oauth:${oauthProvider}:${oauthSubject}`);
+  if (email) keys.push(`email:${String(email).toLowerCase().trim()}`);
+  if (keys.length === 0) return true;
+  try {
+    const placeholders = keys.map(() => '?').join(',');
+    const row = d.prepare(`SELECT 1 FROM identity_gift_ledger WHERE identifier_val IN (${placeholders}) AND trial_granted = 1 LIMIT 1`).get(...keys);
+    return !row;
+  } catch (_) {
+    return true;
+  }
+}
+
+function recordTrialGranted({ oauthProvider, oauthSubject, email, userId } = {}) {
+  const d = _getDb();
+  const keys = [];
+  if (oauthProvider && oauthSubject) keys.push({ type: 'oauth', val: `oauth:${oauthProvider}:${oauthSubject}` });
+  if (email) keys.push({ type: 'email', val: `email:${String(email).toLowerCase().trim()}` });
+  for (const item of keys) {
+    try {
+      d.prepare(`
+        INSERT INTO identity_gift_ledger (identifier_type, identifier_val, trial_granted, tg_gift_granted, last_user_id)
+        VALUES (?, ?, 1, 0, ?)
+        ON CONFLICT(identifier_val) DO UPDATE SET
+          trial_granted = 1,
+          last_user_id = excluded.last_user_id,
+          last_claimed_at = datetime('now')
+      `).run(item.type, item.val, userId || null);
+    } catch (_) {}
+  }
+}
+
+function getDefaultSignupSettings({ oauthProvider, oauthSubject, email } = {}) {
   const userCount = _getDb().prepare('SELECT COUNT(*) as count FROM users').get().count;
   const isAdmin = userCount === 0 ? 1 : 0;
-  const defaultLimit = parseInt(_getSetting('default_traffic_limit'));
+  const defaultLimit = parseInt(_getSetting('default_traffic_limit'), 10);
   const configuredLimit = isNaN(defaultLimit) ? -1 : defaultLimit;
   const defaultGroup = parseInt(_getSetting('default_user_group'), 10);
+
+  let trafficLimit = 0;
+  if (isAdmin) {
+    trafficLimit = configuredLimit;
+  } else {
+    // 首次注册赠送 1GB 体验流量；如果历史已领过（如二次注册），则赠送 0 流量
+    const canGetTrial = isEligibleForTrial({ oauthProvider, oauthSubject, email });
+    trafficLimit = canGetTrial ? TRIAL_TRAFFIC_BYTES : 0;
+  }
+
   return {
     isAdmin,
-    // 非管理员注册不发放流量，需绑定 TG 后才到账（管理员保留配置额度）
-    trafficLimit: isAdmin ? configuredLimit : 0,
+    trafficLimit,
     trustLevel: Number.isFinite(defaultGroup) ? Math.max(0, Math.min(3, defaultGroup)) : 0,
   };
 }
@@ -93,16 +139,24 @@ function insertEmailUser({ username, email, passwordHash, displayName }) {
     throw new Error('invalid input');
   }
   const subToken = genSubToken();
-  const { isAdmin, trafficLimit, trustLevel } = getDefaultSignupSettings();
+  const { isAdmin, trafficLimit, trustLevel } = getDefaultSignupSettings({ email: cleanEmail });
   const name = String(displayName || cleanUsername).trim();
 
+  const initialFrozen = (!isAdmin && trafficLimit === 0) ? 1 : 0;
+  const initialFreezeReason = (!isAdmin && trafficLimit === 0) ? 'traffic_limit' : null;
+
   _getDb().prepare(`
-    INSERT INTO users (auth_type, username, name, trust_level, email, password_hash, sub_token, is_admin, traffic_limit, last_login)
-    VALUES ('email', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-  `).run(cleanUsername, name, trustLevel, cleanEmail, passwordHash, subToken, isAdmin, trafficLimit);
+    INSERT INTO users (auth_type, username, name, trust_level, email, password_hash, sub_token, is_admin, is_frozen, freeze_reason, traffic_limit, last_login)
+    VALUES ('email', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `).run(cleanUsername, name, trustLevel, cleanEmail, passwordHash, subToken, isAdmin, initialFrozen, initialFreezeReason, trafficLimit);
+
+  const newUser = _getDb().prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE').get(cleanEmail);
+  if (newUser && trafficLimit > 0 && !isAdmin) {
+    recordTrialGranted({ email: cleanEmail, userId: newUser.id });
+  }
 
   return {
-    newUser: _getDb().prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE').get(cleanEmail),
+    newUser,
     isAdmin,
     cleanUsername,
     cleanEmail,
@@ -122,19 +176,25 @@ function createOAuthUser({ provider, subject, usernameSeed, email, displayName, 
   const name = String(displayName || username).trim();
   const avatar = String(avatarUrl || '').trim() || null;
   const subToken = genSubToken();
-  const { isAdmin, trafficLimit, trustLevel } = getDefaultSignupSettings();
+  const { isAdmin, trafficLimit, trustLevel } = getDefaultSignupSettings({ oauthProvider: cleanProvider, oauthSubject: cleanSubject, email: cleanEmail });
+
+  const initialFrozen = (!isAdmin && trafficLimit === 0) ? 1 : 0;
+  const initialFreezeReason = (!isAdmin && trafficLimit === 0) ? 'traffic_limit' : null;
 
   _getDb().prepare(`
-    INSERT INTO users (auth_type, username, name, avatar_url, trust_level, email, password_hash, oauth_provider, oauth_subject, sub_token, is_admin, traffic_limit, last_login)
-    VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, datetime('now'))
-  `).run(cleanProvider, username, name, avatar, trustLevel, cleanEmail, cleanProvider, cleanSubject, subToken, isAdmin, trafficLimit);
+    INSERT INTO users (auth_type, username, name, avatar_url, trust_level, email, password_hash, oauth_provider, oauth_subject, sub_token, is_admin, is_frozen, freeze_reason, traffic_limit, last_login)
+    VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+  `).run(cleanProvider, username, name, avatar, trustLevel, cleanEmail, cleanProvider, cleanSubject, subToken, isAdmin, initialFrozen, initialFreezeReason, trafficLimit);
 
   const newUser = getUserByOAuth(cleanProvider, cleanSubject);
+  if (newUser && trafficLimit > 0 && !isAdmin) {
+    recordTrialGranted({ oauthProvider: cleanProvider, oauthSubject: cleanSubject, email: cleanEmail, userId: newUser.id });
+  }
   _addAuditLog(null, 'user_register_oauth', `${cleanProvider} 登录创建用户: ${username}${isAdmin ? ' (管理员)' : ''}`, ip);
 
   try {
-    const { notify } = require('../notify');
-    notify.userRegister(username, { username, email: cleanEmail });
+    const n = _notify || require('../notify').notify;
+    if (n?.userRegister) n.userRegister(username, { username, email: cleanEmail });
   } catch (err) {
     logger.debug({ err, username }, '发送用户注册通知失败，已忽略');
   }
@@ -151,8 +211,8 @@ function createEmailUser({ username, email, passwordHash, displayName, ip = 'sys
   _addAuditLog(null, 'user_register_email', `邮箱注册: ${cleanUsername}${isAdmin ? ' (管理员)' : ''}`, ip);
 
   try {
-    const { notify } = require('../notify');
-    notify.userRegister(cleanUsername, { username: cleanUsername, email: cleanEmail });
+    const n = _notify || require('../notify').notify;
+    if (n?.userRegister) n.userRegister(cleanUsername, { username: cleanUsername, email: cleanEmail });
   } catch (err) {
     logger.debug({ err, username: cleanUsername }, '发送用户注册通知失败，已忽略');
   }
@@ -201,8 +261,8 @@ function createInvitedEmailUser({ username, email, passwordHash, displayName, in
   _addAuditLog(null, 'user_register_email', `邮箱注册: ${cleanUsername}${isAdmin ? ' (管理员)' : ''} 邀请人:${inviterUserId}`, ip);
 
   try {
-    const { notify } = require('../notify');
-    notify.userRegister(cleanUsername, { username: cleanUsername, email: cleanEmail });
+    const n = _notify || require('../notify').notify;
+    if (n?.userRegister) n.userRegister(cleanUsername, { username: cleanUsername, email: cleanEmail });
   } catch (err) {
     logger.debug({ err, username: cleanUsername }, '发送用户注册通知失败，已忽略');
   }
@@ -220,20 +280,96 @@ function getTgBoundUserCount() {
   return _getDb().prepare("SELECT COUNT(*) as count FROM users WHERE telegram_id IS NOT NULL AND telegram_id != ''").get().count;
 }
 
-// 绑定 TG 后发放注册赠送流量：仅当当前额度为 0（尚未发放）时发放，避免老用户或重复发放
+// 绑定 TG 后发放注册赠送 100GB 流量（防刷账本记录，同身份/同 TG 仅可领取一次）
 function grantTgBindGift(userId) {
   const d = _getDb();
-  const u = d.prepare('SELECT traffic_limit FROM users WHERE id = ?').get(userId);
-  if (!u || u.traffic_limit !== 0) return { granted: false, bytes: 0 };
+  const u = d.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!u) return { granted: false, alreadyClaimed: false, bytes: 0 };
+
+  const tgId = u.telegram_id;
+  const keys = [];
+  if (tgId) keys.push(`tg:${tgId}`);
+  if (u.oauth_provider && u.oauth_subject) keys.push(`oauth:${u.oauth_provider}:${u.oauth_subject}`);
+  if (u.email) keys.push(`email:${u.email.toLowerCase().trim()}`);
+
+  // 检查是否已经在历史中领取过 100GB 绑定礼包（防刷）
+  let alreadyClaimed = false;
+  if (keys.length > 0) {
+    try {
+      const placeholders = keys.map(() => '?').join(',');
+      const row = d.prepare(`SELECT 1 FROM identity_gift_ledger WHERE identifier_val IN (${placeholders}) AND tg_gift_granted = 1 LIMIT 1`).get(...keys);
+      alreadyClaimed = !!row;
+    } catch (_) {
+      alreadyClaimed = false;
+    }
+  }
+
+  if (alreadyClaimed) {
+    return { granted: false, alreadyClaimed: true, bytes: 0 };
+  }
+
+  // 首次领取：发放 100GB（增加到当前配额上）
   const raw = parseInt(_getSetting('default_traffic_limit'), 10);
-  const giftBytes = (!Number.isFinite(raw) || raw < 0) ? -1 : raw;
-  d.prepare('UPDATE users SET traffic_limit = ? WHERE id = ?').run(giftBytes, userId);
-  return { granted: true, bytes: giftBytes };
+  const giftBytes = (!Number.isFinite(raw) || raw < 0) ? (100 * 1024 * 1024 * 1024) : raw;
+
+  if (u.traffic_limit >= 0) {
+    d.prepare('UPDATE users SET traffic_limit = traffic_limit + ? WHERE id = ?').run(giftBytes, userId);
+  }
+
+  // 记录到防刷礼包账本
+  const recordList = [];
+  if (tgId) recordList.push({ type: 'tg', val: `tg:${tgId}` });
+  if (u.oauth_provider && u.oauth_subject) recordList.push({ type: 'oauth', val: `oauth:${u.oauth_provider}:${u.oauth_subject}` });
+  if (u.email) recordList.push({ type: 'email', val: `email:${u.email.toLowerCase().trim()}` });
+
+  for (const item of recordList) {
+    try {
+      d.prepare(`
+        INSERT INTO identity_gift_ledger (identifier_type, identifier_val, trial_granted, tg_gift_granted, last_user_id)
+        VALUES (?, ?, 1, 1, ?)
+        ON CONFLICT(identifier_val) DO UPDATE SET
+          tg_gift_granted = 1,
+          last_user_id = excluded.last_user_id,
+          last_claimed_at = datetime('now')
+      `).run(item.type, item.val, userId);
+    } catch (_) {}
+  }
+
+  // 若此前因流量为 0 或超限被冻结，自动解冻
+  if (u.is_frozen && u.freeze_reason === 'traffic_limit') {
+    unfreezeUser(userId);
+  }
+
+  return { granted: true, alreadyClaimed: false, bytes: giftBytes };
 }
 
 // 级联删除用户及其关联数据（与后台删除按钮一致）
 function deleteUserCascade(id) {
   const d = _getDb();
+
+  // 在删除前，先确保该用户的身份标识和申领状态记录在 identity_gift_ledger 中，防止删号后丢失
+  try {
+    const u = d.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (u) {
+      const keys = [];
+      if (u.telegram_id) keys.push({ type: 'tg', val: `tg:${u.telegram_id}` });
+      if (u.oauth_provider && u.oauth_subject) keys.push({ type: 'oauth', val: `oauth:${u.oauth_provider}:${u.oauth_subject}` });
+      if (u.email) keys.push({ type: 'email', val: `email:${u.email.toLowerCase().trim()}` });
+      const hasTgGift = (u.telegram_id && (u.traffic_limit || 0) > 0) ? 1 : 0;
+      for (const k of keys) {
+        d.prepare(`
+          INSERT INTO identity_gift_ledger (identifier_type, identifier_val, trial_granted, tg_gift_granted, last_user_id)
+          VALUES (?, ?, 1, ?, ?)
+          ON CONFLICT(identifier_val) DO UPDATE SET
+            trial_granted = 1,
+            tg_gift_granted = MAX(identity_gift_ledger.tg_gift_granted, excluded.tg_gift_granted),
+            last_user_id = excluded.last_user_id,
+            last_claimed_at = datetime('now')
+        `).run(k.type, k.val, hasTgGift, id);
+      }
+    }
+  } catch (_) {}
+
   const tx = d.transaction(() => {
     d.prepare('DELETE FROM audit_log WHERE user_id = ?').run(id);
     d.prepare('DELETE FROM sub_access_log WHERE user_id = ?').run(id);
@@ -316,7 +452,8 @@ function setUserTrafficLimit(id, limitBytes) {
 
 function isTrafficExceeded(userId) {
   const user = getUserById(userId);
-  if (!user || user.traffic_limit <= 0) return false;
+  if (!user) return false;
+  if (user.traffic_limit < 0) return false; // 负数表示无限配额
   const traffic = _getDb().prepare(
     'SELECT COALESCE(total_up, 0) + COALESCE(total_down, 0) - COALESCE(free_bytes, 0) as billed FROM traffic_user_total WHERE user_id = ?'
   ).get(userId);
