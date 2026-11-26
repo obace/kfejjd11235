@@ -575,15 +575,4 @@ router.post('/sub-visibility', (req, res) => {
   res.json({ ok: true });
 });
 
-const VALID_SITE_THEMES = new Set(['apple-glass', 'aurora-cyan', 'clean-light', 'emerald-cyber', 'rose-dark']);
-router.post('/site-theme', (req, res) => {
-  const theme = String(req.body?.theme || '').trim();
-  if (!VALID_SITE_THEMES.has(theme)) {
-    return res.status(400).json({ error: '不支持的主题模板' });
-  }
-  db.setSetting('site_theme', theme);
-  db.addAuditLog(req.user.id, 'site_theme', `切换网站主题模板: ${theme}`, req.clientIp || req.ip);
-  res.json({ ok: true, theme });
-});
-
 module.exports = router;

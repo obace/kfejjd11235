@@ -536,35 +536,6 @@
 <!-- 设置 Tab -->
 <div class="tab-panel space-y-4" data-tab="settings">
   <div class="glass rounded-2xl p-5">
-    <div class="flex items-center justify-between mb-3">
-      <div>
-        <h3 class="text-white text-sm font-medium">🎨 网站主题模板</h3>
-        <p class="text-gray-600 text-xs mt-0.5">切换全站视觉风格（对所有用户登录页、首页及管理后台实时生效）</p>
-      </div>
-    </div>
-    <% const _curTheme = typeof siteTheme !== 'undefined' && siteTheme ? siteTheme : 'rose-dark'; %>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" id="site-theme-grid">
-      <% const _themes = [
-        { id: 'rose-dark', name: '原版经典 (默认)', desc: '通栏顶栏 · 经典布局', bg: 'linear-gradient(135deg,#0c0a0f,#23111c)', dot: '#f43f5e' },
-        { id: 'apple-glass', name: '苹果毛玻璃', desc: '悬浮胶囊 · Bento 拟态', bg: 'linear-gradient(135deg,#e0ecff,#f5e8ff)', dot: '#007aff' },
-        { id: 'aurora-cyan', name: '极光控制台', desc: '左侧边栏 · 云台布局', bg: 'linear-gradient(135deg,#060b16,#0c2240)', dot: '#06b6d4' },
-        { id: 'clean-light', name: '极简杂志风', desc: '清爽白 · 紧凑行列表', bg: 'linear-gradient(135deg,#ffffff,#eef2f7)', dot: '#2563eb' },
-        { id: 'emerald-cyber', name: '极客终端 HUD', desc: '等宽字体 · 硬朗矩阵', bg: 'linear-gradient(135deg,#050c09,#0d281d)', dot: '#10b981' },
-      ]; %>
-      <% _themes.forEach(function(t) { %>
-        <button type="button" data-theme-id="<%= t.id %>" class="js-site-theme-btn text-left p-3 rounded-xl border transition flex items-center gap-3 <%= _curTheme === t.id ? 'border-rose-500 bg-rose-500/20' : 'border-white/10 bg-black/20 hover:bg-white/5' %>">
-          <span class="w-8 h-8 rounded-lg shrink-0 border border-white/20 flex items-center justify-center" style="background:<%= t.bg %>">
-            <span class="w-3 h-3 rounded-full" style="background:<%= t.dot %>"></span>
-          </span>
-          <div class="min-w-0 flex-1">
-            <div class="text-xs font-medium text-white truncate"><%= t.name %></div>
-            <div class="text-[10px] text-gray-500 truncate"><%= t.desc %></div>
-          </div>
-        </button>
-      <% }); %>
-    </div>
-  </div>
-  <div class="glass rounded-2xl p-5">
     <h3 class="text-white text-sm font-medium mb-3">📢 公告管理</h3>
     <div class="flex gap-2">
       <input type="text" id="announcement-text" value="<%= announcement %>" placeholder="输入公告内容（留空则不显示）" class="flex-1 bg-black/30 text-white px-4 py-2 rounded-xl border border-white/10 text-sm">
@@ -1085,28 +1056,6 @@
     input.addEventListener('change', () => toggleEvent(input));
   });
 
-  document.querySelectorAll('.js-site-theme-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const theme = btn.dataset.themeId;
-      if (!theme) return;
-      const res = await fetch('/admin/api/site-theme', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window._csrf || '' },
-        body: JSON.stringify({ theme })
-      });
-      const d = await res.json().catch(() => ({}));
-      if (res.ok && d.ok) {
-        document.documentElement.dataset.theme = theme;
-        document.querySelectorAll('.js-site-theme-btn').forEach((b) => {
-          const active = b.dataset.themeId === theme;
-          b.className = 'js-site-theme-btn text-left p-3 rounded-xl border transition flex items-center gap-3 ' + (active ? 'border-rose-500 bg-rose-500/20' : 'border-white/10 bg-black/20 hover:bg-white/5');
-        });
-        showToast('✅ 主题已切换，立即生效');
-      } else {
-        showToast('❌ ' + (d.error || '切换失败'));
-      }
-    });
-  });
   document.getElementById('btn-save-announcement')?.addEventListener('click', () => saveAnnouncement());
   document.getElementById('registration-open-toggle')?.addEventListener('change', async (e) => {
     const open = e.target.checked;
