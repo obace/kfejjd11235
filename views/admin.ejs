@@ -1,77 +1,83 @@
 <%- include('partials/head', { title: '管理后台' }) %>
 
-  <!-- 导航 -->
-  <nav class="glass-solid sticky top-0 z-40 px-6 py-3">
-    <div class="max-w-6xl mx-auto flex items-center justify-between">
+  <!-- 悬浮胶囊顶栏 -->
+  <header class="max-w-7xl mx-auto px-4 sm:px-6 pt-3">
+    <nav class="glass-solid rounded-2xl px-4 sm:px-5 py-2.5 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 flex items-center justify-center text-sm">🍑</div>
-        <span class="text-white font-semibold hidden sm:block">大姨子的后台</span>
+        <div class="w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow" style="background:linear-gradient(135deg,var(--accent),#6366f1);color:#fff">🍑</div>
+        <div>
+          <span class="text-white font-semibold text-sm block leading-tight">大姨子的后台</span>
+          <span class="text-[10px] text-gray-500 hidden sm:block">Control Center</span>
+        </div>
       </div>
-      <div class="flex items-center gap-3">
-        <a href="/" class="text-xs px-3 py-1.5 rounded-full glass text-gray-300 hover:text-white transition">返回面板</a>
-        <a href="/auth/logout" class="text-xs px-3 py-1.5 rounded-full glass text-gray-300 hover:text-red-400 transition">退出</a>
+      <div class="flex items-center gap-2">
+        <a href="/" class="text-xs px-3.5 py-1.5 rounded-xl glass text-gray-300 hover:text-white transition">返回面板</a>
+        <a href="/auth/logout" class="text-xs px-3.5 py-1.5 rounded-xl glass text-gray-300 hover:text-red-400 transition">退出</a>
       </div>
-    </div>
-  </nav>
+    </nav>
+  </header>
 
-
-  <!-- Tab 导航 -->
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-4">
-    <div class="sm:hidden mb-2">
-      <label class="text-[11px] text-gray-500 block mb-1">快速切换功能</label>
-      <select id="tab-select" class="w-full bg-black/30 text-white px-3 py-2 rounded-xl border border-white/10 text-sm">
-        <optgroup label="核心">
-          <option value="nodes">🌐 节点</option>
-          <option value="users">👥 用户</option>
-          <option value="invites">🎟 邀请</option>
-          <option value="traffic">📊 流量</option>
-        </optgroup>
-        <optgroup label="监控">
-          <option value="logs">📋 日志</option>
-          <option value="abuse">🛡️ 安全</option>
-          <option value="ops">🧠 运维</option>
-          <option value="diary">📔 运营日记</option>
-        </optgroup>
-        <optgroup label="配置">
-          <option value="notify">🔔 通知</option>
-          <option value="aws">☁️ AWS</option>
-          <option value="settings">⚙️ 设置</option>
-          <option value="backup">💾 备份</option>
-        </optgroup>
-      </select>
-    </div>
-    <div class="relative">
-      <div class="flex gap-1 glass-solid rounded-2xl p-1.5 overflow-x-auto scrollbar-hide tab-bar" style="-webkit-overflow-scrolling:touch" role="tablist" aria-label="后台功能标签">
-        <!-- 核心 -->
-        <button class="tab-btn active text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="nodes" role="tab" aria-selected="true" aria-controls="tab-panel-nodes" id="tab-btn-nodes">🌐 节点</button>
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="users" role="tab" aria-selected="false" aria-controls="tab-panel-users" id="tab-btn-users">👥 用户</button>
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="traffic" role="tab" aria-selected="false" aria-controls="tab-panel-traffic" id="tab-btn-traffic">📊 流量</button>
-        <span class="hidden sm:block w-px bg-white/10 my-1.5 mx-1 flex-shrink-0"></span>
-        <!-- 监控 -->
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="logs" role="tab" aria-selected="false" aria-controls="tab-panel-logs" id="tab-btn-logs">📋 日志</button>
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="abuse" role="tab" aria-selected="false" aria-controls="tab-panel-abuse" id="tab-btn-abuse">🛡️ 安全</button>
-        <span class="hidden sm:block w-px bg-white/10 my-1.5 mx-1 flex-shrink-0"></span>
-        <!-- 配置 -->
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="notify" role="tab" aria-selected="false" aria-controls="tab-panel-notify" id="tab-btn-notify">🔔 通知</button>
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="aws" role="tab" aria-selected="false" aria-controls="tab-panel-aws" id="tab-btn-aws">☁️ AWS</button>
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-panel-settings" id="tab-btn-settings">⚙️ 设置</button>
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="backup" role="tab" aria-selected="false" aria-controls="tab-panel-backup" id="tab-btn-backup">💾 备份</button>
-      </div>
-      <div class="tab-fade-right pointer-events-none absolute right-0 top-0 bottom-0 w-12 rounded-r-2xl" style="background:linear-gradient(to right, transparent, rgba(15,11,30,0.95))"></div>
-      <div class="sm:hidden text-[10px] text-gray-600 mt-1 text-right">可左右滑动查看更多功能</div>
-    </div>
+  <!-- 移动端快速切换（lg 以下显示） -->
+  <div class="lg:hidden max-w-7xl mx-auto px-4 sm:px-6 pt-3">
+    <select id="tab-select" class="w-full bg-black/30 text-white px-3 py-2 rounded-xl border border-white/10 text-sm mb-2">
+      <optgroup label="核心业务">
+        <option value="nodes">🌐 节点管理</option>
+        <option value="users">👥 用户管理</option>
+        <option value="traffic">📊 流量统计</option>
+      </optgroup>
+      <optgroup label="监控安全">
+        <option value="logs">📋 日志审计</option>
+        <option value="abuse">🛡️ 安全风控</option>
+      </optgroup>
+      <optgroup label="系统配置">
+        <option value="notify">🔔 通知配置</option>
+        <option value="aws">☁️ AWS 实例</option>
+        <option value="settings">⚙️ 系统设置</option>
+        <option value="backup">💾 数据备份</option>
+      </optgroup>
+    </select>
   </div>
 
-  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
-    <%- include('partials/admin-nodes') %>
-    <%- include('partials/admin-sections') %>
-    <%- include('partials/admin-traffic') %>
-    <%- include('partials/admin-backup') %>
-  </main>
+  <!-- 主工作区：桌面端左侧边栏 + 右侧内容区 -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-col lg:flex-row gap-5">
+    <aside class="hidden lg:flex lg:flex-col lg:w-52 shrink-0 glass rounded-2xl p-3 h-fit sticky top-5 sidebar-nav space-y-4" role="tablist" aria-label="后台功能标签">
+      <div>
+        <div class="px-2.5 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">核心业务</div>
+        <div class="space-y-1">
+          <button class="tab-btn active text-xs" data-tab="nodes" role="tab" aria-selected="true" aria-controls="tab-panel-nodes" id="tab-btn-nodes"><span>🌐</span><span>节点管理</span></button>
+          <button class="tab-btn text-xs" data-tab="users" role="tab" aria-selected="false" aria-controls="tab-panel-users" id="tab-btn-users"><span>👥</span><span>用户管理</span></button>
+          <button class="tab-btn text-xs" data-tab="traffic" role="tab" aria-selected="false" aria-controls="tab-panel-traffic" id="tab-btn-traffic"><span>📊</span><span>流量统计</span></button>
+        </div>
+      </div>
+      <div>
+        <div class="px-2.5 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">监控安全</div>
+        <div class="space-y-1">
+          <button class="tab-btn text-xs" data-tab="logs" role="tab" aria-selected="false" aria-controls="tab-panel-logs" id="tab-btn-logs"><span>📋</span><span>日志审计</span></button>
+          <button class="tab-btn text-xs" data-tab="abuse" role="tab" aria-selected="false" aria-controls="tab-panel-abuse" id="tab-btn-abuse"><span>🛡️</span><span>安全风控</span></button>
+        </div>
+      </div>
+      <div>
+        <div class="px-2.5 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">系统配置</div>
+        <div class="space-y-1">
+          <button class="tab-btn text-xs" data-tab="notify" role="tab" aria-selected="false" aria-controls="tab-panel-notify" id="tab-btn-notify"><span>🔔</span><span>通知配置</span></button>
+          <button class="tab-btn text-xs" data-tab="aws" role="tab" aria-selected="false" aria-controls="tab-panel-aws" id="tab-btn-aws"><span>☁️</span><span>AWS 实例</span></button>
+          <button class="tab-btn text-xs" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-panel-settings" id="tab-btn-settings"><span>⚙️</span><span>系统设置</span></button>
+          <button class="tab-btn text-xs" data-tab="backup" role="tab" aria-selected="false" aria-controls="tab-panel-backup" id="tab-btn-backup"><span>💾</span><span>数据备份</span></button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="flex-1 min-w-0">
+      <%- include('partials/admin-nodes') %>
+      <%- include('partials/admin-sections') %>
+      <%- include('partials/admin-traffic') %>
+      <%- include('partials/admin-backup') %>
+    </main>
+  </div>
 
   <style nonce="<%= nonce %>">
-    .tab-btn{color:#9ca3af}.tab-btn:hover{color:#fff;background:rgba(255,255,255,0.05)}
-    .tab-btn.active{color:#fff;background:rgba(244,63,94,0.2);font-weight:500}
+    .tab-btn{color:#9ca3af;transition:all .15s}.tab-btn:hover{color:#fff;background:rgba(255,255,255,0.06)}
+    .tab-btn.active{color:#fff;background:rgba(244,63,94,0.2);font-weight:600}
     .tab-panel{display:none}.tab-panel.active{display:block}
   </style>
   <script src="/js/chart.umd.min.js"></script>
@@ -92,6 +98,7 @@
     }
     document.querySelectorAll('.tab-btn[data-tab]').forEach((btn) => {
       btn.addEventListener('click', () => {
+        if (tabSelect) tabSelect.value = btn.dataset.tab;
         switchTab(btn.dataset.tab);
       });
     });
