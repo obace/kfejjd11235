@@ -1158,8 +1158,6 @@
   let _awsRegionsData = null;
   async function loadAwsRegions() {
     const container = document.getElementById('aws-regions-list');
-    const summaryEl = document.getElementById('aws-regions-summary');
-    if (summaryEl) summaryEl.textContent = `(已启用 ${enabledSet.size}/${data.all.length} 个)`;
     if (!container) return;
     try {
       const res = await fetch('/admin/api/aws/regions', { credentials: 'same-origin' });
@@ -1173,6 +1171,8 @@
   function renderAwsRegions(d) {
     const container = document.getElementById('aws-regions-list');
     const enabledSet = new Set(d.enabled);
+    const summaryEl = document.getElementById('aws-regions-summary');
+    if (summaryEl) summaryEl.textContent = `(已启用 ${enabledSet.size}/${d.all.length} 个)`;
     // 按分组组织
     const groups = {};
     for (const region of d.all) {
