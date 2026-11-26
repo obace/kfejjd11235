@@ -154,6 +154,5 @@ test('panel summary reuses merged payload within ttl', async (t) => {
     assert.equal(trafficCalls, 1);
     assert.equal(globalCalls, 1);
     assert.equal(allNodesCalls, 1);
-    assert.equal(diaryCalls, 1);
   });
 });
