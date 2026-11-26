@@ -74,11 +74,7 @@ function buildPanelSummary(user) {
       nodeAvailability: totalActive > 0 ? Math.round(onlineCount / totalActive * 100) : 100,
       nodesOnline: onlineCount,
       nodesTotal: totalActive,
-      patrolDiary: patrolDiary.map(e => ({
-        content: escapeHtml((e.content || '').slice(0, 120)),
-        mood: e.mood || '🐱',
-        time: formatDateTimeInTimeZone(e.created_at, 'Asia/Shanghai'),
-      })),
+      patrolDiary: [],
     },
   };
 }
