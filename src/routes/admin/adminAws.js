@@ -350,8 +350,14 @@ router.post('/aws/launch-and-deploy', async (req, res) => {
 router.post('/aws/auto-bind', asyncHandler(async (req, res) => {
   const allInstances = await aws.listAllInstances();
   const allNodes = db.getAllNodes();
-  const unboundNodes = allNodes.filter(n => !n.aws_instance_id && !n.is_manual);
+  const protoRank = { vless: 0, hy2: 1, ss: 2 };
+  const unboundNodes = allNodes
+    .filter(n => !n.aws_instance_id && !n.is_manual)
+    .sort((a, b) => (protoRank[a.protocol] ?? 3) - (protoRank[b.protocol] ?? 3));
   if (!unboundNodes.length) return res.json({ ok: true, bound: 0, details: [] });
+
+  // 记录已绑定的实例 ID，确保同一实例仅绑定一个主节点（同机其余节点换 IP 时由 peerNodes 联动）
+  const boundInstanceIds = new Set(allNodes.filter(n => n.aws_instance_id).map(n => n.aws_instance_id));
 
   // 构建 IP → 实例映射
   const ipMap = new Map();
@@ -371,7 +377,8 @@ router.post('/aws/auto-bind', asyncHandler(async (req, res) => {
   const details = [];
   for (const node of unboundNodes) {
     const match = ipMap.get(node.host) || ipMap.get(node.ssh_host);
-    if (!match) continue;
+    if (!match || boundInstanceIds.has(match.instanceId)) continue;
+    boundInstanceIds.add(match.instanceId);
     db.updateNode(node.id, {
       aws_instance_id: match.instanceId,
       aws_type: match.type,

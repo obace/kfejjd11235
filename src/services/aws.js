@@ -424,12 +424,26 @@ async function swapLightsailIp(instanceName, region, accountId) {
  * 3. 等待 SSH 可用
  * 4. 同步 xray 配置
  */
+const _swappingInstances = new Set();
+const _recentSwappedAt = new Map();
+const SWAP_COOLDOWN_MS = 2 * 60 * 1000;
+
 async function swapNodeIp(node, awsInstanceId, awsType, awsRegion, awsAccountId) {
   const log = [];
   const l = (msg) => {
     log.push(msg);
     logger.info({ nodeId: node?.id, nodeName: node?.name, awsInstanceId, awsType }, `[换IP] ${msg}`);
   };
+
+  const lockKey = `${awsAccountId || 'default'}:${awsRegion || 'default'}:${awsInstanceId}`;
+  if (_swappingInstances.has(lockKey)) {
+    return { success: false, error: '该实例正在换 IP 中，请勿重复操作', skipped: true };
+  }
+  const lastAt = _recentSwappedAt.get(lockKey) || 0;
+  if (Date.now() - lastAt < SWAP_COOLDOWN_MS) {
+    return { success: false, error: '该实例 2 分钟内已执行过换 IP，已跳过重复操作', skipped: true };
+  }
+  _swappingInstances.add(lockKey);
 
   try {
     l(`开始换 IP: ${node.name} (${node.host})`);
@@ -443,6 +457,7 @@ async function swapNodeIp(node, awsInstanceId, awsType, awsRegion, awsAccountId)
     }
 
     if (!result.newIp) throw new Error('未获取到新 IP');
+    _recentSwappedAt.set(lockKey, Date.now());
     l(`IP 变更: ${result.oldIp} → ${result.newIp}`);
 
     // 2. 更新数据库（触发节点 + 同机节点）
@@ -513,6 +528,8 @@ async function swapNodeIp(node, awsInstanceId, awsType, awsRegion, awsAccountId)
   } catch (e) {
     l(`❌ 换 IP 失败: ${e.message}`);
     return { success: false, error: e.message, log: log.join('\n') };
+  } finally {
+    _swappingInstances.delete(lockKey);
   }
 }
 
