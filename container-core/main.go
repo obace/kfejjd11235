@@ -31,7 +31,7 @@ func loadConfig() Config {
 	c := Config{
 		Listen:           getenv("LISTEN", ":8080"),
 		WSPath:           getenv("WS_PATH", "/bing"),
-		PanelBase:        strings.TrimRight(getenv("PANEL_BASE", "https://cd.sd"), "/"),
+		PanelBase:        strings.TrimRight(getenv("PANEL_BASE", "https://agent.cd.sd"), "/"),
 		AgentToken:       os.Getenv("AGENT_TOKEN"),
 		UserSyncInterval: getdur("USER_SYNC_INTERVAL", 60*time.Second),
 		ReportInterval:   getdur("REPORT_INTERVAL", 5*time.Second),

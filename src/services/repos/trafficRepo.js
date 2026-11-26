@@ -199,26 +199,31 @@ function getUserTrafficDailyAgg(userId, days = 30) {
   `).all(userId, startDate);
 }
 
-function cleanupTrafficHistory(rawRetentionDays = 2, dailyRetentionDays = 120) {
-  const rawDays = Math.max(1, parseInt(rawRetentionDays) || 2);
+async function cleanupTrafficHistory(rawRetentionDays = 1, dailyRetentionDays = 120) {
+  const rawDays = Math.max(1, parseInt(rawRetentionDays) || 1);
   const dailyDays = Math.max(30, parseInt(dailyRetentionDays) || 120);
   const dailyCutoff = dateKeyDaysAgo(dailyDays - 1, 'Asia/Shanghai');
   const d = _getDb();
 
-  // 分批小事务删除原始流量，避免单次大事务撑爆 WAL 与内存
+  // 异步分批小事务删除原始流量，每批让出事件循环，避免阻塞 WebSocket 心跳与定时任务
+  const BATCH_SIZE = 10000;
   const stmtBatchRaw = d.prepare(`
     DELETE FROM traffic
     WHERE id IN (
       SELECT id FROM traffic
       WHERE recorded_at < datetime('now', ?)
-      LIMIT 20000
+      LIMIT ?
     )
   `);
   let rawDeleted = 0;
-  for (let i = 0; i < 200; i++) {
-    const r = stmtBatchRaw.run(`-${rawDays} days`);
+  for (let i = 0; i < 2000; i++) {
+    const r = stmtBatchRaw.run(`-${rawDays} days`, BATCH_SIZE);
     rawDeleted += r.changes || 0;
-    if ((r.changes || 0) < 20000) break;
+    if ((r.changes || 0) < BATCH_SIZE) break;
+    if ((i + 1) % 20 === 0) {
+      try { d.pragma('wal_checkpoint(PASSIVE)'); } catch (_) {}
+    }
+    await new Promise((resolve) => setTimeout(resolve, 30));
   }
 
   const r2 = d.prepare(`

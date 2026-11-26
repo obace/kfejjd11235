@@ -40,7 +40,7 @@ const { notify } = require('./services/notify');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DEFAULT_TRAFFIC_RAW_RETENTION_DAYS = Math.max(1, parseInt(process.env.TRAFFIC_RAW_RETENTION_DAYS || '2', 10) || 2); // 原始2秒明细仅用于12h突降检测，默认保留2天
+const DEFAULT_TRAFFIC_RAW_RETENTION_DAYS = Math.max(1, parseInt(process.env.TRAFFIC_RAW_RETENTION_DAYS || '1', 10) || 1); // 原始2秒明细仅用于12h突降检测，默认保留2天
 const DEFAULT_TRAFFIC_DAILY_RETENTION_DAYS = Math.max(90, parseInt(process.env.TRAFFIC_DAILY_RETENTION_DAYS || '120', 10) || 120); // 最小 90 天，保证趋势图数据充足
 
 morgan.token('real-ip', (req) => req.clientIp || req.ip || req.socket?.remoteAddress || '-');
@@ -318,7 +318,7 @@ function cleanAuditLogs() {
     }
     let r5 = { changes: 0 };
     try {
-      r5 = d.prepare("DELETE FROM abuse_log WHERE created_at < datetime('now', '-30 days')").run();
+      r5 = d.prepare("DELETE FROM abuse_log WHERE created_at < datetime('now', '-7 days')").run();
     } catch (err) {
       logger.debug({ err }, '跳过清理 abuse_log（可能表不存在）');
     }
@@ -352,13 +352,13 @@ cronTasks.push(cron.schedule('30 4 * * *', cleanAuditLogs, { timezone: 'Asia/Sha
 
 // 每天凌晨 4:40 清理流量历史明细
 // 说明：traffic_site_total / traffic_user_total 为累计值，不受清理影响
-function cleanTrafficHistory() {
+async function cleanTrafficHistory() {
   try {
     const rawSetting = parseInt(dbModule.getSetting('traffic_raw_retention_days') || '', 10);
     const dailySetting = parseInt(dbModule.getSetting('traffic_daily_retention_days') || '', 10);
     const rawDays = Math.max(1, Number.isFinite(rawSetting) ? rawSetting : DEFAULT_TRAFFIC_RAW_RETENTION_DAYS);
     const dailyDays = Math.max(90, Number.isFinite(dailySetting) ? dailySetting : DEFAULT_TRAFFIC_DAILY_RETENTION_DAYS);
-    const result = dbModule.cleanupTrafficHistory(rawDays, dailyDays);
+    const result = await dbModule.cleanupTrafficHistory(rawDays, dailyDays);
     logger.info({ ...result }, '流量历史清理完成');
   } catch (err) {
     logger.error({ err }, '流量历史清理失败');

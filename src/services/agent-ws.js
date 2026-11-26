@@ -23,9 +23,9 @@ const METRICS_STALE_THRESHOLD = 86400000; // 24 小时未更新视为过期
 // 待响应的指令回调：cmdId → { resolve, reject, timer, nodeId }
 const pendingCommands = new Map();
 
-const AUTH_TIMEOUT = 10000; // 认证超时 10s
+const AUTH_TIMEOUT = 30000; // 认证超时 30s
 const PING_INTERVAL = 30000;
-const PONG_TIMEOUT = 10000;
+const PONG_TIMEOUT = 25000;
 const CMD_TIMEOUT = 30000;
 
 let wss = null;
