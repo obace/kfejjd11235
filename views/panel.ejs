@@ -1,8 +1,9 @@
 <%- include('partials/head', { title: '节点面板' }) %>
 
   <!-- 悬浮胶囊导航 -->
-  <header class="sticky top-3 z-40 max-w-6xl mx-auto px-4 sm:px-6 pt-3">
-    <nav class="glass-solid rounded-2xl px-4 sm:px-5 py-2.5 flex items-center justify-between gap-2">
+  <div class="panel-shell">
+  <header class="panel-header sticky top-3 z-40 max-w-6xl mx-auto px-4 sm:px-6 pt-3">
+    <nav class="panel-nav glass-solid rounded-2xl px-4 sm:px-5 py-2.5 flex items-center justify-between gap-2">
       <div class="flex items-center gap-2.5 min-w-0">
         <div class="w-8 h-8 rounded-xl flex items-center justify-center text-sm shadow shrink-0" style="background:linear-gradient(135deg,var(--accent),#6366f1);color:#fff">🍑</div>
         <span class="text-white font-semibold text-sm hidden sm:block truncate">大姨子的诱惑</span>
@@ -23,8 +24,10 @@
     </nav>
   </header>
 
+  <main class="panel-main max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
   <% if (announcement) { %>
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 mt-4">
+  <div>
     <div class="bg-rose-500/10 border border-rose-500/20 rounded-2xl">
       <div class="px-4 py-2 flex items-center gap-2 text-xs">
         <span class="text-rose-400 shrink-0">📢</span>
@@ -37,7 +40,7 @@
   <% } %>
 
   <% if (tgBotEnabled && !tgBound) { %>
-  <div class="max-w-6xl mx-auto px-4 sm:px-6 mt-4">
+  <div>
     <div id="tg-bind-banner" class="relative overflow-hidden rounded-2xl" style="background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);border:1px solid rgba(34,211,238,0.45);box-shadow:0 8px 24px rgba(8,40,60,0.45)">
       <div class="flex items-center justify-between" style="padding:18px 20px;gap:16px">
         <div class="flex items-center" style="gap:14px">
@@ -58,12 +61,11 @@
   </div>
   <% } %>
 
-  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
     <!-- Bento 仪表盘：左卡流量总览 + 右卡订阅控制中心 -->
-    <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <section class="panel-bento grid grid-cols-1 lg:grid-cols-12 gap-4">
       <!-- 左侧：流量与账号总览 -->
-      <div class="lg:col-span-5 glass rounded-3xl p-5 flex flex-col justify-between gap-4">
+      <div class="bento-traffic lg:col-span-5 glass rounded-3xl p-5 flex flex-col justify-between gap-4">
         <div>
           <div class="flex items-center justify-between mb-3">
             <span class="text-xs font-medium text-gray-400">📊 流量配额总览</span>
@@ -105,7 +107,7 @@
       </div>
 
       <!-- 右侧：个人订阅控制中心 -->
-      <div class="lg:col-span-7 glass rounded-3xl p-5 flex flex-col justify-between gap-3">
+      <div class="bento-sub lg:col-span-7 glass rounded-3xl p-5 flex flex-col justify-between gap-3">
         <% const _launchDate = new Date('2026-03-10T00:00:00+09:00'); const _runDays = Math.floor((Date.now() - _launchDate.getTime()) / 86400000); %>
         <div class="flex items-center justify-between flex-wrap gap-2">
           <div class="flex items-center gap-2">
@@ -272,6 +274,7 @@
       <% }); %>
     </div>
   </main>
+  </div>
 
   <script nonce="<%= nonce %>">
     function copyLink(id) {

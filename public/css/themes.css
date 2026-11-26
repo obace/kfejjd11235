@@ -401,3 +401,141 @@ html[data-theme="rose-dark"] .login-inp {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+
+
+/* ==========================================================================
+   Genuine Structural Layout Variations Per Theme + Mobile Adaptation
+   ========================================================================== */
+
+/* 1. rose-dark: Classic Full-Width Header + Classic Stacked Admin Tabs */
+[data-theme="rose-dark"] .panel-header {
+  max-width: 100% !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-top: 0 !important;
+  top: 0 !important;
+}
+[data-theme="rose-dark"] .panel-nav {
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+}
+@media (min-width: 1024px) {
+  [data-theme="rose-dark"] .classic-admin-tabs {
+    display: block !important;
+  }
+  [data-theme="rose-dark"] aside.sidebar-nav {
+    display: none !important;
+  }
+}
+
+/* 2. aurora-cyan: Desktop Left Sidebar Cloud Console Layout on User Panel */
+@media (min-width: 1024px) {
+  [data-theme="aurora-cyan"] .panel-shell {
+    display: flex;
+    max-width: 82rem;
+    margin: 0 auto;
+    padding: 1.25rem 1.5rem;
+    gap: 1.25rem;
+    align-items: flex-start;
+  }
+  [data-theme="aurora-cyan"] .panel-header {
+    position: sticky;
+    top: 1.25rem;
+    width: 14rem;
+    flex-shrink: 0;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  [data-theme="aurora-cyan"] .panel-nav {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 1rem !important;
+    gap: 1rem !important;
+  }
+  [data-theme="aurora-cyan"] .panel-nav > div:first-child {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  [data-theme="aurora-cyan"] .panel-nav > div:first-child > span:last-child {
+    margin-left: 0 !important;
+    display: inline-flex !important;
+  }
+  [data-theme="aurora-cyan"] .panel-nav > div:last-child {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.35rem !important;
+  }
+  [data-theme="aurora-cyan"] .panel-nav > div:last-child a,
+  [data-theme="aurora-cyan"] .panel-nav > div:last-child button {
+    text-align: left;
+    padding: 0.55rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+  [data-theme="aurora-cyan"] .panel-main {
+    flex: 1;
+    min-width: 0;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+/* 3. clean-light: Magazine Bento (Reversed Top Grid + Compact Row Node List on Desktop) */
+@media (min-width: 1024px) {
+  [data-theme="clean-light"] .bento-sub {
+    order: 1;
+  }
+  [data-theme="clean-light"] .bento-traffic {
+    order: 2;
+  }
+  [data-theme="clean-light"] .node-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+}
+[data-theme="clean-light"] .node-card {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* 4. emerald-cyber: Monospace Hacker HUD Matrix */
+[data-theme="emerald-cyber"] body,
+[data-theme="emerald-cyber"] button,
+[data-theme="emerald-cyber"] input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+}
+[data-theme="emerald-cyber"] .glass,
+[data-theme="emerald-cyber"] .glass-solid,
+[data-theme="emerald-cyber"] .rounded-2xl,
+[data-theme="emerald-cyber"] .rounded-3xl {
+  border-radius: 6px !important;
+}
+[data-theme="emerald-cyber"] .bento-progress-track,
+[data-theme="emerald-cyber"] .bento-progress-fill {
+  border-radius: 2px !important;
+}
+
+/* 5. Mobile Client Adaptation (< 640px) across all 5 themes */
+@media (max-width: 640px) {
+  .panel-header {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    top: 0.5rem !important;
+  }
+  .panel-nav {
+    padding: 0.5rem 0.75rem !important;
+  }
+  .sub-btn-row input {
+    flex-basis: 100%;
+  }
+  .sub-btn-row button {
+    flex: 1 1 0%;
+    min-height: 38px;
+  }
+  .node-card {
+    padding: 0.875rem !important;
+  }
+}

@@ -17,6 +17,21 @@
     </nav>
   </header>
 
+  <!-- 原版经典顶部 Tab 栏（仅 rose-dark 主题在桌面端显示） -->
+  <div class="classic-admin-tabs hidden max-w-6xl mx-auto px-4 sm:px-6 pt-4">
+    <div class="flex gap-1 glass-solid rounded-2xl p-1.5 overflow-x-auto scrollbar-hide" role="tablist">
+      <button class="tab-btn active text-sm px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="nodes">🌐 节点</button>
+      <button class="tab-btn text-sm px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="users">👥 用户</button>
+      <button class="tab-btn text-sm px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="traffic">📊 流量</button>
+      <button class="tab-btn text-sm px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="logs">📋 日志</button>
+      <button class="tab-btn text-sm px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="abuse">🛡️ 安全</button>
+      <button class="tab-btn text-sm px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="notify">🔔 通知</button>
+      <button class="tab-btn text-sm px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="aws">☁️ AWS</button>
+      <button class="tab-btn text-sm px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="settings">⚙️ 设置</button>
+      <button class="tab-btn text-sm px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="backup">💾 备份</button>
+    </div>
+  </div>
+
   <!-- 移动端快速切换（lg 以下显示） -->
   <div class="lg:hidden max-w-7xl mx-auto px-4 sm:px-6 pt-3">
     <select id="tab-select" class="w-full bg-black/30 text-white px-3 py-2 rounded-xl border border-white/10 text-sm mb-2">

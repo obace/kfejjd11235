@@ -542,14 +542,14 @@
         <p class="text-gray-600 text-xs mt-0.5">切换全站视觉风格（对所有用户登录页、首页及管理后台实时生效）</p>
       </div>
     </div>
-    <% const _curTheme = typeof siteTheme !== 'undefined' && siteTheme ? siteTheme : 'apple-glass'; %>
+    <% const _curTheme = typeof siteTheme !== 'undefined' && siteTheme ? siteTheme : 'rose-dark'; %>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3" id="site-theme-grid">
       <% const _themes = [
-        { id: 'apple-glass', name: '苹果毛玻璃', desc: '通透磨砂拟态', bg: 'linear-gradient(135deg,#e0ecff,#f5e8ff)', dot: '#007aff' },
-        { id: 'aurora-cyan', name: '深海极光', desc: '午夜科技青蓝', bg: 'linear-gradient(135deg,#060b16,#0c2240)', dot: '#06b6d4' },
-        { id: 'clean-light', name: '极简白昼', desc: 'Apple 清爽白', bg: 'linear-gradient(135deg,#ffffff,#eef2f7)', dot: '#2563eb' },
-        { id: 'emerald-cyber', name: '暗夜翡翠', desc: '极客终端绿', bg: 'linear-gradient(135deg,#050c09,#0d281d)', dot: '#10b981' },
-        { id: 'rose-dark', name: '经典暗夜', desc: '原版玫红毛玻璃', bg: 'linear-gradient(135deg,#0c0a0f,#23111c)', dot: '#f43f5e' },
+        { id: 'rose-dark', name: '原版经典 (默认)', desc: '通栏顶栏 · 经典布局', bg: 'linear-gradient(135deg,#0c0a0f,#23111c)', dot: '#f43f5e' },
+        { id: 'apple-glass', name: '苹果毛玻璃', desc: '悬浮胶囊 · Bento 拟态', bg: 'linear-gradient(135deg,#e0ecff,#f5e8ff)', dot: '#007aff' },
+        { id: 'aurora-cyan', name: '极光控制台', desc: '左侧边栏 · 云台布局', bg: 'linear-gradient(135deg,#060b16,#0c2240)', dot: '#06b6d4' },
+        { id: 'clean-light', name: '极简杂志风', desc: '清爽白 · 紧凑行列表', bg: 'linear-gradient(135deg,#ffffff,#eef2f7)', dot: '#2563eb' },
+        { id: 'emerald-cyber', name: '极客终端 HUD', desc: '等宽字体 · 硬朗矩阵', bg: 'linear-gradient(135deg,#050c09,#0d281d)', dot: '#10b981' },
       ]; %>
       <% _themes.forEach(function(t) { %>
         <button type="button" data-theme-id="<%= t.id %>" class="js-site-theme-btn text-left p-3 rounded-xl border transition flex items-center gap-3 <%= _curTheme === t.id ? 'border-rose-500 bg-rose-500/20' : 'border-white/10 bg-black/20 hover:bg-white/5' %>">

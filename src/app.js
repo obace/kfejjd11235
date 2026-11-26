@@ -129,9 +129,9 @@ app.use(csrfLocals);
 // 注入网站主题模板
 app.use((req, res, next) => {
   try {
-    res.locals.siteTheme = dbModule.getSetting('site_theme') || 'apple-glass';
+    res.locals.siteTheme = dbModule.getSetting('site_theme') || 'rose-dark';
   } catch (_) {
-    res.locals.siteTheme = 'apple-glass';
+    res.locals.siteTheme = 'rose-dark';
   }
   next();
 });
