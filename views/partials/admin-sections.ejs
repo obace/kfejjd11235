@@ -559,17 +559,6 @@
     </label>
     <label class="flex items-center justify-between p-3 rounded-xl bg-black/20 cursor-pointer hover:bg-white/5 transition mt-2">
       <div>
-        <span class="text-white text-sm">邀请码注册</span>
-        <p class="text-gray-600 text-[11px] mt-0.5">开启后非首位用户必须填写邀请码；关闭后可直接注册</p>
-      </div>
-      <div class="relative">
-        <input type="checkbox" id="invite-registration-open-toggle" class="sr-only peer" <%= inviteRegistrationOpen ? 'checked' : '' %>>
-        <div class="w-9 h-5 bg-gray-600 rounded-full peer-checked:bg-rose-500 transition-colors"></div>
-        <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
-      </div>
-    </label>
-    <label class="flex items-center justify-between p-3 rounded-xl bg-black/20 cursor-pointer hover:bg-white/5 transition mt-2">
-      <div>
         <span class="text-white text-sm">NodeLoc 注册</span>
         <p class="text-gray-600 text-[11px] mt-0.5">关闭后 NodeLoc 新用户无法注册（老用户登录不受影响）</p>
       </div>
@@ -1092,9 +1081,6 @@
     if (res.ok) showToast(open ? '✅ 已启用 NodeLoc 登录' : '✅ 已隐藏 NodeLoc 登录');
     else { e.target.checked = !open; showToast('❌ 操作失败'); }
   });
-  document.getElementById('invite-registration-open-toggle')?.addEventListener('change', async (e) => {
-    const open = e.target.checked;
-    const res = await fetch('/admin/api/invite-registration-open', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window._csrf || '' }, body: JSON.stringify({ open }) });
     if (res.ok) showToast(open ? '✅ 已开放邀请码注册' : '✅ 已关闭邀请码注册');
     else { e.target.checked = !open; showToast('❌ 操作失败'); }
   });

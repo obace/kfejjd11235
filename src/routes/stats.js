@@ -59,12 +59,6 @@ function buildPanelSummary(user) {
   const onlineCount = nodes.filter((n) => onlineAgents.has(n.id)).length;
   const totalActive = nodes.length;
 
-  const patrolDiary = d.prepare(`
-    SELECT content, mood, created_at FROM ops_diary
-    WHERE category = 'patrol'
-    ORDER BY created_at DESC LIMIT 3
-  `).all();
-
   return {
     stats: {
       online: summary.online || 0,

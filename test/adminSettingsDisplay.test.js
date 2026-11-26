@@ -31,43 +31,6 @@ async function withMockedAdminSettingsRouter(mockDb, fn) {
   }
 }
 
-test('GET /diary returns *_display fields', async (t) => {
-  const mockDb = {
-    getDiaryEntries: () => ({
-      rows: [{
-        id: 1,
-        content: 'entry',
-        mood: '🐱',
-        category: 'ops',
-        created_at: '2026-02-27 16:30:45',
-      }],
-      total: 1,
-    }),
-    getDiaryStats: () => ({
-      total: 1,
-      todayCount: 1,
-      firstEntry: '2026-02-27 16:30:45',
-    }),
-  };
-
-  await withMockedAdminSettingsRouter(mockDb, async (router) => {
-    const app = express();
-    app.use('/admin/api', router);
-    const { server, baseUrl } = await startServer(app);
-    t.after(() => new Promise((resolve) => server.close(resolve)));
-
-    const resp = await fetch(`${baseUrl}/admin/api/diary?page=1`);
-    assert.equal(resp.status, 200);
-    const data = await resp.json();
-    assert.equal(data.rows.length, 1);
-    assert.equal(data.rows[0].created_at_display, '2026-02-28 00:30');
-    assert.equal(data.rows[0].created_date_display, '2026-02-28');
-    assert.equal(data.rows[0].created_time_display, '00:30');
-    assert.ok(data.rows[0].created_weekday_display);
-    assert.equal(data.stats.firstEntryDisplay, '2026-02-28 00:30');
-  });
-});
-
 test('GET /logs and /sub-stats include display fields', async (t) => {
   const mockDb = {
     getAuditLogs: () => ({

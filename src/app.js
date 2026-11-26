@@ -376,16 +376,6 @@ function cleanNodeMetrics() {
 }
 cron.schedule('50 4 * * *', cleanNodeMetrics, { timezone: 'Asia/Shanghai' });
 
-// 每分钟：将创建超过 15 分钟仍未支付（pending）的兑换订单标记为 closed
-cron.schedule('* * * * *', () => {
-  try {
-    const r = getDb().prepare(
-      "UPDATE nodeloc_payment_orders SET status = 'closed', updated_at = datetime('now') WHERE status = 'pending' AND created_at < datetime('now', '-15 minutes')"
-    ).run();
-    if (r.changes > 0) logger.info({ closed: r.changes }, '关闭超时未支付兑换订单');
-  } catch (err) { logger.error({ err }, '关闭超时订单失败'); }
-});
-
 // 每分钟：检查农场作物成熟情况并发送 TG 通知
 cron.schedule('* * * * *', async () => {
   try {
@@ -394,14 +384,6 @@ cron.schedule('* * * * *', async () => {
     logger.error({ err }, '发送农场成熟通知失败');
   }
 });
-
-// 每天凌晨 2 点：清空已关闭（closed）、失败（failed）以及超额被拒（rejected_daily_limit）的无效兑换订单
-cron.schedule('0 2 * * *', () => {
-  try {
-    const r = getDb().prepare("DELETE FROM nodeloc_payment_orders WHERE status IN ('closed', 'failed', 'rejected_daily_limit')").run();
-    if (r.changes > 0) logger.info({ deleted: r.changes }, '清理无效兑换订单(closed/failed/rejected_daily_limit)');
-  } catch (err) { logger.error({ err }, '清理已关闭订单失败'); }
-}, { timezone: 'Asia/Shanghai' });
 
 // O3: Graceful Shutdown
 function gracefulShutdown(signal) {
