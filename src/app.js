@@ -126,6 +126,16 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 // CSRF 防护
 app.use(csrfLocals);
 
+// 注入网站主题模板
+app.use((req, res, next) => {
+  try {
+    res.locals.siteTheme = dbModule.getSetting('site_theme') || 'apple-glass';
+  } catch (_) {
+    res.locals.siteTheme = 'apple-glass';
+  }
+  next();
+});
+
 // 配置同步事件监听
 configEvents.on('sync-all', () => {
   deployService.syncAllNodesConfig(dbModule).catch(err => logger.error('[配置同步]', err));
