@@ -900,9 +900,10 @@ function updateFromAgentReport(nodeId, reportData) {
   if (!serviceAlive) {
     status = 0;
     remark = `🔴 ${serviceName} 离线 (Agent)`;
-  } else if (cnReachable === false || cnReachable === 0) {
+  } else if (node.remark && node.remark.includes('单向被墙')) {
+    // 已被国内探针标记为单向被墙，不能仅凭海外 Agent 心跳恢复，需由国内探针探测恢复或换 IP 后解除
     status = 0;
-    remark = '🧱 疑似被墙 (Agent)';
+    remark = node.remark;
   } else if (node.remark && node.remark.includes('零流量')) {
     // 被零流量巡检标记为疑似被墙的节点，不能仅凭 Agent 上报恢复
     // 需要有实际用户流量才能解除（由 checkSuddenZeroTraffic 的清理逻辑处理）
@@ -949,34 +950,10 @@ function updateFromAgentReport(nodeId, reportData) {
     _nodeFailCount.set(nodeId, newFailCount);
 
     if (newFailCount === FAIL_THRESHOLD) {
-      // 达到阈值，触发掉线通知
+      // 达到阈值，触发掉线通知（被墙判定已交由国内探针与零流量巡检负责）
       logger.info({ nodeId, nodeName: node.name, failThreshold: FAIL_THRESHOLD, remark }, '[Agent] 节点连续失败达到阈值');
-      bufferSystemAuditLog(remark.includes('被墙') ? 'node_blocked' : 'node_xray_down', `${node.name}: ${remark}（连续${FAIL_THRESHOLD}次）`);
-
-      // 被墙且绑 AWS：自动换 IP
-      if (remark.includes('被墙') && node.aws_instance_id) {
-        notify.nodeBlocked(node.name, '自动换 IP');
-        (async () => {
-          try {
-            bufferSystemAuditLog('auto_swap_ip_start', `被墙自动换 IP: ${node.name}`);
-            notify.ops(`🧱 <b>Agent 检测到疑似被墙</b>\n节点: ${node.name}\n动作: 自动换 IP`);
-            const aws = require('./aws'); // 延迟加载避免循环依赖
-            const swap = await aws.swapNodeIp(node, node.aws_instance_id, node.aws_type, node.aws_region, node.aws_account_id);
-            if (swap.success) {
-              bufferSystemAuditLog('auto_swap_ip_ok', `${node.name} 换 IP 成功: ${swap.oldIp || '?'} → ${swap.newIp}`);
-              notify.ops(`✅ <b>自动换 IP 成功</b>\n节点: ${node.name}\nIP: ${swap.oldIp || '未知'} → ${swap.newIp}`);
-            } else {
-              bufferSystemAuditLog('auto_swap_ip_fail', `${node.name} 换 IP 失败: ${swap.error}`);
-              notify.ops(`❌ <b>自动换 IP 失败</b>\n节点: ${node.name}\n原因: ${swap.error}`);
-            }
-          } catch (e) {
-            bufferSystemAuditLog('auto_swap_ip_fail', `${node.name} 换 IP 异常: ${e.message}`);
-            notify.ops(`❌ <b>自动换 IP 异常</b>\n节点: ${node.name}\n原因: ${e.message}`);
-          }
-        })();
-      } else if (remark.includes('被墙')) {
-        notify.nodeBlocked(node.name, '需手动处理');
-      } else if (!serviceAlive) {
+      if (!serviceAlive) {
+        bufferSystemAuditLog('node_xray_down', `${node.name}: ${remark}（连续${FAIL_THRESHOLD}次）`);
         // 服务离线：尝试自动重启（从 DB 读取配置）
         const { autoRestartEnabled, maxRestarts } = getAutoRestartSettings();
         const restartCount = (_xrayRestartCount.get(nodeId) || 0) + 1;
@@ -1296,7 +1273,9 @@ async function handleCnProbeReport(probeRegion = 'cn', results = []) {
     if (item.reachable === true) {
       _cnProbeFailCount.set(nodeId, 0);
       if (node.remark && node.remark.includes('单向被墙')) {
+        const peers = getPeerNodes(node, allNodes);
         db.updateNode(nodeId, { is_active: 1, remark: '' });
+        mirrorPeerState(peers, 1, '');
       }
       continue;
     }
