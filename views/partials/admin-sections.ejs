@@ -1081,9 +1081,6 @@
     if (res.ok) showToast(open ? '✅ 已启用 NodeLoc 登录' : '✅ 已隐藏 NodeLoc 登录');
     else { e.target.checked = !open; showToast('❌ 操作失败'); }
   });
-    if (res.ok) showToast(open ? '✅ 已开放邀请码注册' : '✅ 已关闭邀请码注册');
-    else { e.target.checked = !open; showToast('❌ 操作失败'); }
-  });
   document.getElementById('btn-save-email-domains')?.addEventListener('click', async () => {
     const domains = document.getElementById('allowed-email-domains')?.value?.trim() || '';
     const res = await fetch('/admin/api/allowed-email-domains', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': window._csrf || '' }, body: JSON.stringify({ domains }) });
