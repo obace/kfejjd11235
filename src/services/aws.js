@@ -1,5 +1,5 @@
 const { EC2Client, DescribeInstancesCommand, AllocateAddressCommand, AssociateAddressCommand, DisassociateAddressCommand, ReleaseAddressCommand, DescribeAddressesCommand, RunInstancesCommand, TerminateInstancesCommand, StartInstancesCommand, StopInstancesCommand, DescribeImagesCommand, CreateTagsCommand } = require('@aws-sdk/client-ec2');
-const { LightsailClient, GetInstancesCommand, GetStaticIpsCommand, AllocateStaticIpCommand, AttachStaticIpCommand, DetachStaticIpCommand, ReleaseStaticIpCommand, CreateInstancesCommand, DeleteInstanceCommand, StartInstanceCommand, StopInstanceCommand } = require('@aws-sdk/client-lightsail');
+const { LightsailClient, GetInstancesCommand, GetStaticIpsCommand, AllocateStaticIpCommand, AttachStaticIpCommand, DetachStaticIpCommand, ReleaseStaticIpCommand, CreateInstancesCommand, DeleteInstanceCommand, StartInstanceCommand, StopInstanceCommand, OpenInstancePublicPortsCommand } = require('@aws-sdk/client-lightsail');
 const { NodeHttpHandler } = require('@smithy/node-http-handler');
 const { SocksProxyAgent } = require('socks-proxy-agent');
 const db = require('./database');
@@ -538,30 +538,55 @@ async function terminateLightsailInstance(instanceName, region, accountId) {
 
 // ========== 获取最新 Ubuntu ARM64 AMI ==========
 
-async function getLatestUbuntuAmi(region, accountId) {
+function inferEc2Arch(instanceType = 't4g.micro') {
+  const family = String(instanceType || 't4g.micro').split('.')[0].toLowerCase();
+  return (/^[a-z]\d+g/.test(family) || family === 'a1') ? 'arm64' : 'x86_64';
+}
+
+function buildRootPasswordUserData(sshPassword) {
+  if (!sshPassword) return null;
+  const b64Cred = Buffer.from(`root:${sshPassword}`, 'utf8').toString('base64');
+  return [
+    '#!/bin/bash',
+    `echo "${b64Cred}" | base64 -d | chpasswd`,
+    'sed -i "s/^#*PermitRootLogin.*/PermitRootLogin yes/" /etc/ssh/sshd_config',
+    'sed -i "s/^#*PasswordAuthentication.*/PasswordAuthentication yes/" /etc/ssh/sshd_config',
+    'rm -f /etc/ssh/sshd_config.d/60-cloudimg-settings.conf /etc/ssh/sshd_config.d/50-cloud-init.conf',
+    'systemctl restart ssh || systemctl restart sshd || true'
+  ].join('\n');
+}
+
+async function getLatestUbuntuAmi(region, accountId, arch = 'arm64') {
   const ec2 = getEC2Client(region, accountId);
+  const amiArch = arch === 'x86_64' ? 'x86_64' : 'arm64';
+  const namePattern = amiArch === 'x86_64'
+    ? 'ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*'
+    : 'ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*';
   const res = await ec2.send(new DescribeImagesCommand({
     Filters: [
-      { Name: 'name', Values: ['ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*'] },
+      { Name: 'name', Values: [namePattern] },
       { Name: 'state', Values: ['available'] },
-      { Name: 'architecture', Values: ['arm64'] }
+      { Name: 'architecture', Values: [amiArch] }
     ],
     Owners: ['099720109477'] // Canonical
   }));
   const images = (res.Images || []).sort((a, b) => (b.CreationDate || '').localeCompare(a.CreationDate || ''));
-  if (images.length === 0) throw new Error('未找到 Ubuntu ARM64 AMI');
+  if (images.length === 0) throw new Error(`未找到 Ubuntu ${amiArch} AMI`);
   return images[0].ImageId;
 }
 
 // ========== 创建实例 ==========
 
-async function launchEC2Instance(region, instanceType, accountId) {
+async function launchEC2Instance(region, instanceType, accountId, sshPassword) {
   const ec2 = getEC2Client(region, accountId);
-  const amiId = await getLatestUbuntuAmi(region, accountId);
+  const targetType = instanceType || 't4g.micro';
+  const arch = inferEc2Arch(targetType);
+  const amiId = await getLatestUbuntuAmi(region, accountId, arch);
+  const userDataScript = buildRootPasswordUserData(sshPassword);
 
-  const res = await ec2.send(new RunInstancesCommand({
+  const params = {
     ImageId: amiId,
-    InstanceType: instanceType || 't4g.micro',
+    InstanceType: targetType,
     MinCount: 1,
     MaxCount: 1,
     // 使用默认 VPC 和安全组，需要公网 IP
@@ -570,23 +595,46 @@ async function launchEC2Instance(region, instanceType, accountId) {
       AssociatePublicIpAddress: true,
       Groups: [] // 使用默认安全组
     }]
-  }));
+  };
+  if (userDataScript) {
+    params.UserData = Buffer.from(userDataScript, 'utf8').toString('base64');
+  }
 
+  const res = await ec2.send(new RunInstancesCommand(params));
   const instance = res.Instances?.[0];
   if (!instance) throw new Error('EC2 创建失败');
   return { instanceId: instance.InstanceId, state: instance.State?.Name };
 }
 
-async function launchLightsailInstance(region, bundleId, instanceName, accountId) {
+async function launchLightsailInstance(region, bundleId, instanceName, accountId, sshPassword) {
   const ls = getLightsailClient(region, accountId);
   const az = region + 'a'; // 默认用 a 可用区
-  await ls.send(new CreateInstancesCommand({
+  const userDataScript = buildRootPasswordUserData(sshPassword);
+  const params = {
     instanceNames: [instanceName],
     availabilityZone: az,
     blueprintId: 'ubuntu_22_04',
     bundleId: bundleId || 'nano_3_0',
-  }));
+  };
+  if (userDataScript) {
+    params.userData = userDataScript;
+  }
+  await ls.send(new CreateInstancesCommand(params));
   return { instanceName, state: 'pending' };
+}
+
+async function openLightsailPort(instanceName, port, region, accountId) {
+  const ls = getLightsailClient(region, accountId);
+  const p = parseInt(port, 10);
+  if (!p || p < 1 || p > 65535) return;
+  await ls.send(new OpenInstancePublicPortsCommand({
+    instanceName,
+    portInfo: {
+      fromPort: p,
+      toPort: p,
+      protocol: 'all'
+    }
+  }));
 }
 
 // ========== 等待实例就绪 ==========
@@ -716,7 +764,7 @@ module.exports = {
   listLightsailInstances, swapLightsailIp,
   startLightsailInstance, stopLightsailInstance, terminateLightsailInstance,
   swapNodeIp,
-  getLatestUbuntuAmi, launchEC2Instance, launchLightsailInstance,
+  getLatestUbuntuAmi, launchEC2Instance, launchLightsailInstance, openLightsailPort,
   waitForInstanceRunning, tagInstance, listAllInstances,
   ALL_AWS_REGIONS, AWS_REGION_META,
 };
