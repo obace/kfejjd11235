@@ -551,4 +551,39 @@ router.get('/security/multi-node-overview', (req, res) => {
   }
 });
 
+// GET /ops/api/probe/targets — 获取待探测的非手动活跃节点列表（供国内云函数探针调用）
+router.get('/probe/targets', (req, res) => {
+  try {
+    const nodes = db.getAllNodes(true)
+      .filter(n => !n.is_manual && n.host)
+      .map(n => ({
+        id: n.id,
+        name: n.name,
+        host: n.host,
+        port: n.protocol === 'hy2' ? (n.hy2_port || n.port) : n.port,
+        protocol: n.protocol || 'vless',
+      }));
+    res.json({ ok: true, count: nodes.length, targets: nodes });
+  } catch (err) {
+    logger.error({ err }, 'OPS API probe targets 失败');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /ops/api/probe/report — 接收国内探针探测结果并交叉判定单向被墙
+router.post('/probe/report', async (req, res) => {
+  try {
+    const region = String(req.body?.region || 'cn').slice(0, 32);
+    const results = req.body?.results;
+    if (!Array.isArray(results)) {
+      return res.status(400).json({ error: 'results must be an array' });
+    }
+    const summary = await healthService.handleCnProbeReport(region, results);
+    res.json({ ok: true, region, ...summary });
+  } catch (err) {
+    logger.error({ err }, 'OPS API probe report 失败');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

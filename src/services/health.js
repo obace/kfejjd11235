@@ -1272,10 +1272,86 @@ function checkSuddenZeroTraffic() {
 }
 
 // 节点被删除时清理相关内存状态，防止条目残留
+const _cnProbeFailCount = new Map();
+const CN_PROBE_FAIL_THRESHOLD = 3;
+
+// 处理来自国内探针（如华为云函数）的连通性上报，结合 Agent 在线状态交叉判定单向被墙
+async function handleCnProbeReport(probeRegion = 'cn', results = []) {
+  if (!Array.isArray(results) || results.length === 0) {
+    return { processed: 0, triggeredSwapIds: [] };
+  }
+  const agentWs = require('./agent-ws');
+  const allNodes = db.getAllNodes(false);
+  const nodeById = new Map(allNodes.map(n => [n.id, n]));
+  let processed = 0;
+  const triggeredSwapIds = [];
+
+  for (const item of results) {
+    const nodeId = parseInt(item?.id, 10);
+    if (!nodeId) continue;
+    const node = nodeById.get(nodeId);
+    if (!node || node.is_manual || !node.is_active) continue;
+    processed++;
+
+    if (item.reachable === true) {
+      _cnProbeFailCount.set(nodeId, 0);
+      if (node.remark && node.remark.includes('单向被墙')) {
+        db.updateNode(nodeId, { is_active: 1, remark: '' });
+      }
+      continue;
+    }
+
+    if (item.reachable !== false) continue;
+
+    // 交叉验证：仅当节点（或同机伙伴）Agent 在线时，才判定为「单向被墙」
+    const peers = getPeerNodes(node, allNodes);
+    const agentAlive = agentWs.isAgentOnline(nodeId) || peers.some(p => agentWs.isAgentOnline(p.id));
+    if (!agentAlive) continue;
+
+    const failCount = (_cnProbeFailCount.get(nodeId) || 0) + 1;
+    _cnProbeFailCount.set(nodeId, failCount);
+
+    if (failCount === CN_PROBE_FAIL_THRESHOLD) {
+      const remark = `🧱 疑似单向被墙 (探针:${probeRegion})`;
+      db.updateNode(nodeId, { is_active: 0, remark });
+      mirrorPeerState(peers, 0, remark);
+      bufferSystemAuditLog('node_blocked_cn_probe', `${node.name}: 国内探针(${probeRegion})连续${CN_PROBE_FAIL_THRESHOLD}次不可达且Agent在线`);
+
+      const awsNode = node.aws_instance_id ? node : peers.find(p => p.aws_instance_id);
+      if (awsNode) {
+        triggeredSwapIds.push(nodeId);
+        _cnProbeFailCount.set(nodeId, 0);
+        notify.ops(`🧱 <b>国内探针检测到单向被墙</b>\n节点: ${node.name}\n探针区域: ${probeRegion}\n动作: 自动换 IP`);
+        (async () => {
+          try {
+            const aws = require('./aws');
+            const swap = await aws.swapNodeIp(awsNode, awsNode.aws_instance_id, awsNode.aws_type, awsNode.aws_region, awsNode.aws_account_id);
+            if (swap.success) {
+              bufferSystemAuditLog('auto_swap_ip_ok', `${awsNode.name} 单向被墙换IP成功: ${swap.oldIp || '?'} → ${swap.newIp}`);
+              notify.ops(`✅ <b>单向被墙自动换 IP 成功</b>\n节点: ${awsNode.name}\nIP: ${swap.oldIp || '?'} → ${swap.newIp}`);
+            } else if (!swap.skipped) {
+              bufferSystemAuditLog('auto_swap_ip_fail', `${awsNode.name} 单向被墙换IP失败: ${swap.error}`);
+              notify.ops(`❌ <b>单向被墙换 IP 失败</b>\n节点: ${awsNode.name}\n原因: ${swap.error}`);
+            }
+          } catch (e) {
+            bufferSystemAuditLog('auto_swap_ip_fail', `${awsNode.name} 单向被墙换IP异常: ${e.message}`);
+            notify.ops(`❌ <b>单向被墙换 IP 异常</b>\n节点: ${awsNode.name}\n原因: ${e.message}`);
+          }
+        })();
+      } else {
+        notify.nodeBlocked(node.name, `国内探针(${probeRegion})不可达，未绑定AWS需手动处理`);
+      }
+    }
+  }
+
+  return { processed, triggeredSwapIds };
+}
+
 function cleanupNodeState(nodeId) {
   if (!nodeId) return;
   try {
     _nodeFailCount.delete(nodeId);
+    _cnProbeFailCount.delete(nodeId);
     _nodeFailCount.delete(`ipv6_${nodeId}`);
     _nodeUserLastSeen.delete(nodeId);
     // 清理资源告警缓存（key 形如 nodeId_disk / nodeId_mem 等）
@@ -1296,4 +1372,4 @@ function cleanupNodeState(nodeId) {
   }
 }
 
-module.exports = { checkPort, getOnlineCache, updateFromAgentReport, getPeerNodes, mirrorPeerState, startZeroTrafficWatch, startStaleAgentWatch, startSuddenZeroTrafficWatch, cleanupNodeState };
+module.exports = { checkPort, getOnlineCache, updateFromAgentReport, getPeerNodes, mirrorPeerState, startZeroTrafficWatch, startStaleAgentWatch, startSuddenZeroTrafficWatch, cleanupNodeState, handleCnProbeReport };
