@@ -184,11 +184,14 @@ async function loadAllInstances(force) {
     } catch (e) { console.warn('AWS cache read failed:', e); }
   }
 
+  loading.textContent = '⏳ 正在加载实例列表...';
   loading.classList.remove('hidden');
   container.classList.add('hidden');
   try {
     const res = await fetch('/admin/api/aws/all-instances?force=1');
-    const accounts = await res.json();
+    const rawText = await res.text();
+    let accounts;
+    try { accounts = JSON.parse(rawText); } catch (_) { throw new Error('请求超时或返回异常 (' + res.status + ')'); }
     if (!res.ok) throw new Error(accounts.error || '加载失败');
 
     localStorage.setItem(AWS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: accounts }));

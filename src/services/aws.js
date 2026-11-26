@@ -130,13 +130,27 @@ function setAwsConfig(cfg) {
 }
 
 function buildRequestHandler(cfg) {
-  if (!cfg?.socks5_host) return undefined;
-  const auth = cfg.socks5_user ? `${encodeURIComponent(cfg.socks5_user)}:${encodeURIComponent(cfg.socks5_pass || '')}@` : '';
-  const proxyUrl = `socks5://${auth}${cfg.socks5_host}:${cfg.socks5_port || 1080}`;
-  return new NodeHttpHandler({
-    httpAgent: new SocksProxyAgent(proxyUrl),
-    httpsAgent: new SocksProxyAgent(proxyUrl)
-  });
+  const opts = {
+    connectionTimeout: 5000,
+    requestTimeout: 8000,
+  };
+  if (cfg?.socks5_host) {
+    const auth = cfg.socks5_user ? `${encodeURIComponent(cfg.socks5_user)}:${encodeURIComponent(cfg.socks5_pass || '')}@` : '';
+    const proxyUrl = `socks5://${auth}${cfg.socks5_host}:${cfg.socks5_port || 1080}`;
+    opts.httpAgent = new SocksProxyAgent(proxyUrl);
+    opts.httpsAgent = new SocksProxyAgent(proxyUrl);
+  }
+  return new NodeHttpHandler(opts);
+}
+
+function withTimeout(promise, ms = 10000) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('AWS region request timeout')), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 function getEC2Client(region, accountId) {
@@ -145,6 +159,7 @@ function getEC2Client(region, accountId) {
   return new EC2Client({
     region: region || cfg.defaultRegion,
     credentials: { accessKeyId: cfg.accessKey, secretAccessKey: cfg.secretKey },
+    maxAttempts: 1,
     requestHandler: buildRequestHandler(cfg)
   });
 }
@@ -155,6 +170,7 @@ function getLightsailClient(region, accountId) {
   return new LightsailClient({
     region: region || cfg.defaultRegion,
     credentials: { accessKeyId: cfg.accessKey, secretAccessKey: cfg.secretKey },
+    maxAttempts: 1,
     requestHandler: buildRequestHandler(cfg)
   });
 }
@@ -726,7 +742,7 @@ async function listAllInstances() {
     const promises = uniqueRegions.map(async (region) => {
       const regionInstances = [];
       try {
-        const ec2List = await listEC2Instances(region, account.id);
+        const ec2List = await withTimeout(listEC2Instances(region, account.id), 10000);
         for (const inst of ec2List) {
           const node = nodeMap[`${account.id}:${region}:${inst.instanceId}`];
           regionInstances.push({
@@ -742,7 +758,7 @@ async function listAllInstances() {
       // Lightsail 仅在支持的区域调用（避免不必要的报错和延迟）
       if (LIGHTSAIL_REGIONS.has(region)) {
         try {
-          const lsList = await listLightsailInstances(region, account.id);
+          const lsList = await withTimeout(listLightsailInstances(region, account.id), 10000);
           for (const inst of lsList) {
             const node = nodeMap[`${account.id}:${inst.region || region}:${inst.instanceName}`];
             regionInstances.push({

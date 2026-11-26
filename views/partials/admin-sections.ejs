@@ -814,20 +814,26 @@
     <div id="aws-instances-container" class="text-center py-8 text-gray-500 text-xs">点击「🔄 刷新实例」加载</div>
   </div>
 
-  <!-- 区域筛选 -->
+  <!-- 区域筛选（默认折叠） -->
   <div class="glass rounded-2xl p-5">
-    <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
-      <div>
+    <div class="flex items-center justify-between gap-2 flex-wrap">
+      <div class="flex items-center gap-2">
         <h3 class="text-white text-sm font-medium">🌍 区域筛选</h3>
-        <p class="text-gray-600 text-[11px] mt-0.5">关闭不需要的区域可显著加快「刷新实例」速度。<span class="text-cyan-400">EC2+LS</span> 表示该区域同时支持 EC2 与 Lightsail，<span class="text-gray-400">仅 EC2</span> 表示只支持 EC2。</p>
+        <span id="aws-regions-summary" class="text-[11px] text-gray-400">加载中...</span>
       </div>
-      <div class="flex gap-2">
-        <button type="button" id="btn-aws-regions-all" class="text-xs glass text-gray-300 hover:text-white px-3 py-1.5 rounded-xl transition">全选</button>
-        <button type="button" id="btn-aws-regions-none" class="text-xs glass text-gray-300 hover:text-white px-3 py-1.5 rounded-xl transition">全不选</button>
-        <button type="button" id="btn-aws-regions-save" class="text-xs bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-xl transition">保存</button>
-      </div>
+      <button type="button" id="btn-toggle-aws-regions" class="text-xs glass text-gray-300 hover:text-white px-3 py-1.5 rounded-xl transition">展开 ▾</button>
     </div>
-    <div id="aws-regions-list" class="text-center py-6 text-gray-500 text-xs">⏳ 加载中...</div>
+    <div id="aws-regions-body" class="hidden mt-3 pt-3 border-t border-white/10">
+      <div class="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <p class="text-gray-600 text-[11px]">关闭不需要的区域可显著加快「刷新实例」速度。<span class="text-cyan-400">EC2+LS</span> 表示该区域同时支持 EC2 与 Lightsail，<span class="text-gray-400">仅 EC2</span> 表示只支持 EC2。</p>
+        <div class="flex gap-2">
+          <button type="button" id="btn-aws-regions-all" class="text-xs glass text-gray-300 hover:text-white px-3 py-1.5 rounded-xl transition">全选</button>
+          <button type="button" id="btn-aws-regions-none" class="text-xs glass text-gray-300 hover:text-white px-3 py-1.5 rounded-xl transition">全不选</button>
+          <button type="button" id="btn-aws-regions-save" class="text-xs bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-xl transition">保存</button>
+        </div>
+      </div>
+      <div id="aws-regions-list" class="text-center py-6 text-gray-500 text-xs">⏳ 加载中...</div>
+    </div>
   </div>
 
   <div class="glass rounded-2xl p-5">
@@ -868,9 +874,10 @@
     <h3 class="text-white text-sm font-medium mb-3">🔗 节点绑定 AWS 实例</h3>
     <p class="text-gray-600 text-xs mb-3">绑定后，被墙时自动换 IP；也可手动换 IP</p>
     <div class="space-y-2">
-      <% nodes.filter(n => n.protocol !== 'hy2').forEach(function(n) { %>
+      <% nodes.filter(n => !n.is_manual).forEach(function(n) { %>
       <div class="flex items-center justify-between p-3 rounded-xl bg-black/20">
         <div class="flex items-center gap-2">
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-gray-300 uppercase"><%= n.protocol || 'vless' %></span>
           <span class="text-white text-sm"><%= n.name %></span>
           <span class="text-gray-500 text-xs"><%= n.host %></span>
           <% if (n.aws_instance_id) { %>
@@ -1151,6 +1158,8 @@
   let _awsRegionsData = null;
   async function loadAwsRegions() {
     const container = document.getElementById('aws-regions-list');
+    const summaryEl = document.getElementById('aws-regions-summary');
+    if (summaryEl) summaryEl.textContent = `(已启用 ${enabledSet.size}/${data.all.length} 个)`;
     if (!container) return;
     try {
       const res = await fetch('/admin/api/aws/regions', { credentials: 'same-origin' });
@@ -1213,6 +1222,13 @@
   }
   document.addEventListener('change', (e) => {
     if (e.target?.classList?.contains('js-aws-region-toggle')) updateAwsRegionsCount();
+  });
+  document.getElementById('btn-toggle-aws-regions')?.addEventListener('click', () => {
+    const body = document.getElementById('aws-regions-body');
+    const btn = document.getElementById('btn-toggle-aws-regions');
+    if (!body || !btn) return;
+    const isHidden = body.classList.toggle('hidden');
+    btn.textContent = isHidden ? '展开 ▾' : '收起 ▴';
   });
   document.getElementById('btn-aws-regions-all')?.addEventListener('click', () => {
     document.querySelectorAll('.js-aws-region-toggle').forEach(c => { c.checked = true; });
