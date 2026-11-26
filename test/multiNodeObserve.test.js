@@ -1,3 +1,4 @@
+process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'test-session-secret';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');

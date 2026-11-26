@@ -168,7 +168,8 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // 定时轮换任务（默认每天凌晨 3 点）
-cron.schedule('0 3 * * *', async () => {
+const cronTasks = [];
+cronTasks.push(cron.schedule('0 3 * * *', async () => {
   logger.info('[CRON] 开始自动轮换...');
   try {
     await rotateService.rotateAll();
@@ -176,10 +177,10 @@ cron.schedule('0 3 * * *', async () => {
   } catch (err) {
     logger.error({ err }, '[CRON] 轮换失败');
   }
-}, { timezone: 'Asia/Shanghai' });
+}, { timezone: 'Asia/Shanghai' }));
 
 // 每天凌晨 4 点自动冻结不活跃/到期用户（受开关控制）
-cron.schedule('0 4 * * *', async () => {
+cronTasks.push(cron.schedule('0 4 * * *', async () => {
   try {
     let needsSync = false;
 
@@ -248,17 +249,17 @@ cron.schedule('0 4 * * *', async () => {
       await deployService.syncAllNodesConfig(dbModule);
     }
   } catch (err) { logger.error({ err }, '清理/冻结失败'); }
-}, { timezone: 'Asia/Shanghai' });
+}, { timezone: 'Asia/Shanghai' }));
 
 // 每天凌晨 6 点静默探测拉黑/停用机器人的已绑定用户，并解绑使其纳入未绑定清理（凌晨低峰执行）
-cron.schedule('0 6 * * *', async () => {
+cronTasks.push(cron.schedule('0 6 * * *', async () => {
   try {
     const res = await require('./services/tgbot').probeAndUnbindBlockers();
     if (res && res.blocked > 0) {
       logger.info({ checked: res.checked, blocked: res.blocked }, '定时探测：已解绑拉黑机器人的用户');
     }
   } catch (err) { logger.error({ err }, '定时探测拉黑用户失败'); }
-}, { timezone: 'Asia/Shanghai' });
+}, { timezone: 'Asia/Shanghai' }));
 
 // 启动
 const server = app.listen(PORT, () => {
@@ -284,12 +285,12 @@ const agentWs = require('./services/agent-ws');
 agentWs.init(server);
 
 // O4: 每 7 天（每周一凌晨 2 点）自动备份数据库，仅保留最新 1 个备份
-cron.schedule('0 2 * * 1', async () => {
+cronTasks.push(cron.schedule('0 2 * * 1', async () => {
   const result = await performBackup(getDb());
   if (!result.ok) {
     logger.error({ error: result.error }, '定时备份失败');
   }
-}, { timezone: 'Asia/Shanghai' });
+}, { timezone: 'Asia/Shanghai' }));
 
 // O7: 每天凌晨 4:30 清理过期审计日志和订阅访问日志（保留90天）
 function cleanAuditLogs() {
@@ -347,7 +348,7 @@ function cleanAuditLogs() {
     logger.error({ err }, '审计日志清理失败');
   }
 }
-cron.schedule('30 4 * * *', cleanAuditLogs, { timezone: 'Asia/Shanghai' });
+cronTasks.push(cron.schedule('30 4 * * *', cleanAuditLogs, { timezone: 'Asia/Shanghai' }));
 
 // 每天凌晨 4:40 清理流量历史明细
 // 说明：traffic_site_total / traffic_user_total 为累计值，不受清理影响
@@ -363,7 +364,7 @@ function cleanTrafficHistory() {
     logger.error({ err }, '流量历史清理失败');
   }
 }
-cron.schedule('40 4 * * *', cleanTrafficHistory, { timezone: 'Asia/Shanghai' });
+cronTasks.push(cron.schedule('40 4 * * *', cleanTrafficHistory, { timezone: 'Asia/Shanghai' }));
 
 // 每天凌晨 4:50 清理过期监控指标
 function cleanNodeMetrics() {
@@ -374,16 +375,16 @@ function cleanNodeMetrics() {
     logger.info({ deletedMetrics: result.deletedMetrics }, '监控指标清理完成');
   } catch (err) { logger.error({ err }, '监控指标清理失败'); }
 }
-cron.schedule('50 4 * * *', cleanNodeMetrics, { timezone: 'Asia/Shanghai' });
+cronTasks.push(cron.schedule('50 4 * * *', cleanNodeMetrics, { timezone: 'Asia/Shanghai' }));
 
 // 每分钟：检查农场作物成熟情况并发送 TG 通知
-cron.schedule('* * * * *', async () => {
+cronTasks.push(cron.schedule('* * * * *', async () => {
   try {
     await require('./services/farm').checkAndNotifyMatureCrops();
   } catch (err) {
     logger.error({ err }, '发送农场成熟通知失败');
   }
-});
+}));
 
 // O3: Graceful Shutdown
 function gracefulShutdown(signal) {
@@ -395,9 +396,13 @@ function gracefulShutdown(signal) {
     try { agentWs.shutdown(); } catch (err) {
       logger.debug({ err }, '关闭 Agent WebSocket 失败，继续关闭流程');
     }
+    // 停止定时任务
+    for (const task of cronTasks) {
+      try { task.stop(); } catch (_) {}
+    }
     // 关闭数据库
     try {
-      getDb().close();
+      closeDb();
       logger.info('数据库连接已关闭');
     } catch (err) {
       logger.debug({ err }, '关闭数据库连接失败，继续退出');

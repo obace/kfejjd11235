@@ -551,6 +551,10 @@ function autoFreezeExpiredUsers() {
   return users;
 }
 
+function unbindTelegram(userId) {
+  _getDb().prepare('UPDATE users SET telegram_id = NULL WHERE id = ?').run(userId);
+}
+
 module.exports = {
   init,
   getUserBySubToken, getUserById, getUsersByIds, getUserByUsername, getUserByEmail, getUserByOAuth,
@@ -559,5 +563,5 @@ module.exports = {
   grantTgBindGift, deleteUserCascade, getUnboundUsersForDeletion,
   getAllUsers, getAllUsersPaged, blockUser, setUserTrafficLimit,
   isTrafficExceeded, freezeUser, unfreezeUser, autoFreezeNoCheckinUsers, autoDeleteNoCheckinUsers, getNoCheckinUsersForWarning, resetSubToken,
-  setUserExpiry, autoFreezeExpiredUsers
+  setUserExpiry, autoFreezeExpiredUsers, unbindTelegram
 };

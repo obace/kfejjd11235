@@ -15,7 +15,7 @@
         <a href="/farm-game" class="text-xs px-3 py-1.5 rounded-full text-emerald-300 hover:text-emerald-200 transition">🌾 农场</a>
         <a href="/monitor" class="text-xs px-3 py-1.5 rounded-full text-cyan-300 hover:text-cyan-200 transition">📡 探针</a>
         <% if (user.is_admin) { %><a href="/admin" class="text-xs px-3 py-1.5 rounded-full bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition">管理</a><% } %>
-        <a href="/auth/logout" class="text-xs px-3 py-1.5 rounded-full glass text-gray-300 hover:text-red-400 transition">退出</a>
+        <form method="POST" action="/auth/logout" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="text-xs px-3 py-1.5 rounded-full glass text-gray-300 hover:text-red-400 transition cursor-pointer">退出</button></form>
       </div>
     </div>
   </nav>

@@ -74,39 +74,6 @@ const agentDownloadLimiter = rateLimit({
   legacyHeaders: false
 });
 
-const GAME_RPS_WINDOW_MS = toPosInt(process.env.GAME_RPS_WINDOW_MS, 10 * 1000, 1000, 10 * 60 * 1000);
-const GAME_RPS_MAX_REQ = toPosInt(process.env.GAME_RPS_MAX_REQ, 20, 1, 1000);
-const GAME_FLIP_WINDOW_MS = toPosInt(process.env.GAME_FLIP_WINDOW_MS, 10 * 1000, 1000, 10 * 60 * 1000);
-const GAME_FLIP_MAX_REQ = toPosInt(process.env.GAME_FLIP_MAX_REQ, 10, 1, 1000);
-const GAME_LUCKY_WINDOW_MS = toPosInt(process.env.GAME_LUCKY_WINDOW_MS, 15 * 1000, 1000, 10 * 60 * 1000);
-const GAME_LUCKY_MAX_REQ = toPosInt(process.env.GAME_LUCKY_MAX_REQ, 2, 1, 1000);
-
-function buildGameLimiter(windowMs, max) {
-  return rateLimit({
-    windowMs,
-    max,
-    message: { ok: false, error: '操作过于频繁，请稍后再试' },
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => {
-      // 优先用 IP 限流（不可伪造）。如果 tgUserId 同时存在且对应已绑定的真实用户，
-      // 则使用 IP+tgUserId 复合 key（让同 IP 不同账号也分别限流），
-      // 但 tgUserId 单独不能作为唯一 key —— 攻击者每次发不同 tgUserId 即绕过限流。
-      const ipKey = `ip:${getClientIp(req)}`;
-      const tgUserIdRaw = String(req.body?.tgUserId || '').trim();
-      if (!tgUserIdRaw || !/^\d{1,20}$/.test(tgUserIdRaw)) return ipKey;
-      try {
-        const exists = db.getDb().prepare('SELECT 1 FROM users WHERE telegram_id = ? LIMIT 1').get(tgUserIdRaw);
-        if (exists) return `${ipKey}|tg:${tgUserIdRaw}`;
-      } catch (_) { /* DB 暂不可用时回退 */ }
-      return ipKey;
-    },
-  });
-}
-
-const gameRpsLimiter = buildGameLimiter(GAME_RPS_WINDOW_MS, GAME_RPS_MAX_REQ);
-const gameFlipLimiter = buildGameLimiter(GAME_FLIP_WINDOW_MS, GAME_FLIP_MAX_REQ);
-const gameLuckyLimiter = buildGameLimiter(GAME_LUCKY_WINDOW_MS, GAME_LUCKY_MAX_REQ);
 
 // 已登录 API per-user 限流（用于聚合查询路由）：每用户 60 秒 120 次
 const userApiLimiter = rateLimit({
@@ -126,8 +93,5 @@ module.exports = {
   subLimiter,
   adminLimiter,
   agentDownloadLimiter,
-  gameRpsLimiter,
-  gameFlipLimiter,
-  gameLuckyLimiter,
   userApiLimiter,
 };

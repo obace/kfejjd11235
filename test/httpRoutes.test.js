@@ -242,7 +242,7 @@ test('GET /admin/api/users redirects to login when unauthenticated', async (t) =
 });
 
 test('csrfProtection rejects json request when Origin is missing or mismatched', async (t) => {
-  const { csrfProtection } = require('../src/middleware/csrf');
+  const { csrfProtection, csrfLocals } = require('../src/middleware/csrf');
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
@@ -304,7 +304,7 @@ test('admin api success path works with session login and csrf', async (t) => {
   await withMockedDatabaseForAdmin(async () => {
     const { setupAuth } = require('../src/middleware/auth');
     const adminApiRoutes = require('../src/routes/adminApi');
-    const { csrfProtection } = require('../src/middleware/csrf');
+    const { csrfProtection, csrfLocals } = require('../src/middleware/csrf');
 
     const app = express();
     app.use(express.json());
@@ -314,6 +314,8 @@ test('admin api success path works with session login and csrf', async (t) => {
       saveUninitialized: false,
     }));
     setupAuth(app);
+    app.use(csrfLocals);
+    app.get('/test-csrf', (req, res) => res.json({ csrfToken: res.locals.csrfToken }));
 
     app.post('/test-login', (req, res, next) => {
       req.logIn({ id: 1, is_admin: 1, is_blocked: 0 }, (err) => {
@@ -338,11 +340,14 @@ test('admin api success path works with session login and csrf', async (t) => {
     const usersData = await usersResp.json();
     assert.equal(usersData.total, 1);
 
+    const csrfResp = await fetch(`${baseUrl}/test-csrf`, { headers: { Cookie: cookie } });
+    const { csrfToken } = await csrfResp.json();
     const postResp = await fetch(`${baseUrl}/admin/api/default-traffic-limit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Cookie: cookie,
+        'x-csrf-token': csrfToken,
         Origin: baseUrl,
       },
       body: JSON.stringify({ limit: 1 }),

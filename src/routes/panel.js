@@ -188,7 +188,7 @@ router.get('/', requireAuth, (req, res) => {
 router.post('/api/tg-unbind', requireAuth, csrfProtection, (req, res) => {
   const user = db.getUserById(req.user.id);
   if (!user || !user.telegram_id) return res.json({ ok: false, error: '当前未绑定 Telegram' });
-  db.getDb().prepare('UPDATE users SET telegram_id = NULL WHERE id = ?').run(user.id);
+  db.unbindTelegram(user.id);
   res.json({ ok: true });
 });
 

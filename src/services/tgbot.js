@@ -527,7 +527,6 @@ bot.onText(/\/nodes/, (msg) => { if (!isPrivateChat(msg)) return; return handleN
 // /sub
 bot.onText(/\/sub/, (msg) => { if (!isPrivateChat(msg)) return; return handleSub(msg); });
 
-// /rps 猜拳赢流量 (Web App)
 
 bot.on('message', (msg) => {
   if (!isPrivateChat(msg)) return; // 仅响应私聊，群聊静默

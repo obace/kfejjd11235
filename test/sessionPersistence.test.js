@@ -74,7 +74,7 @@ test('persistent sqlite session survives server restart for admin api', async (t
   await withMockedDatabaseForAdmin(async () => {
     const { setupAuth } = require('../src/middleware/auth');
     const adminApiRoutes = require('../src/routes/adminApi');
-    const { csrfProtection } = require('../src/middleware/csrf');
+    const { csrfProtection, csrfLocals } = require('../src/middleware/csrf');
 
     const dir = await fsp.mkdtemp(path.join(os.tmpdir(), 'vless-session-'));
     const sessionDbPath = path.join(dir, 'sessions.db');
@@ -95,12 +95,14 @@ test('persistent sqlite session survives server restart for admin api', async (t
         saveUninitialized: false,
       }));
       setupAuth(app);
+      app.use(csrfLocals);
       app.post('/test-login', (req, res, next) => {
         req.logIn({ id: 1, is_admin: 1, is_blocked: 0 }, (err) => {
           if (err) return next(err);
           return res.json({ ok: true });
         });
       });
+      app.get('/test-csrf', (req, res) => res.json({ csrfToken: res.locals.csrfToken }));
       app.use('/admin/api', csrfProtection, adminApiRoutes);
       return app;
     };
@@ -122,11 +124,14 @@ test('persistent sqlite session survives server restart for admin api', async (t
     const usersData = await usersResp.json();
     assert.equal(usersData.total, 1);
 
+    const csrfResp = await fetch(`${second.baseUrl}/test-csrf`, { headers: { Cookie: cookie } });
+    const { csrfToken } = await csrfResp.json();
     const postResp = await fetch(`${second.baseUrl}/admin/api/default-traffic-limit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Cookie: cookie,
+        'x-csrf-token': csrfToken,
         Origin: second.baseUrl,
       },
       body: JSON.stringify({ limit: 1 }),

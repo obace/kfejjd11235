@@ -11,7 +11,7 @@
         <span id="monitor-stats" class="text-gray-500 text-xs hidden sm:block"></span>
         <span class="text-gray-300 text-sm hidden sm:block"><%= user.name || user.username %></span>
         <a href="/" class="text-xs px-3 py-1.5 rounded-full glass text-gray-300 hover:text-white transition">返回面板</a>
-        <a href="/auth/logout" class="text-xs px-3 py-1.5 rounded-full glass text-gray-300 hover:text-red-400 transition">退出</a>
+        <form method="POST" action="/auth/logout" class="inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="text-xs px-3 py-1.5 rounded-full glass text-gray-300 hover:text-red-400 transition cursor-pointer">退出</button></form>
       </div>
     </div>
   </nav>

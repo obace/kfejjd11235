@@ -67,6 +67,7 @@
       </div>
     <% } %>
     <form method="POST" action="/auth/email-register" class="text-left" id="reg-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <% if (!firstUserMode && inviteEnabled) { %>
       <label class="text-gray-500 text-xs block mb-1.5 ml-1">邀请码</label>
       <div class="input-wrap mb-3">
@@ -123,7 +124,7 @@
       try {
         const res = await fetch('/auth/send-email-code', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '<%= csrfToken %>' },
           body: JSON.stringify({ email, inviteCode })
         });
         const data = await res.json();

@@ -295,7 +295,7 @@ function buildVerificationEmailHtml({ title, code }) {
 }
 
 // 发送邮箱验证码
-router.post('/send-email-code', sendCodeLimiter, async (req, res) => {
+router.post('/send-email-code', sendCodeLimiter, csrfProtection, async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const inviteCode = normalizeInviteCode(req.body?.inviteCode || '');
   if (!isValidEmail(email)) return res.json({ ok: false, error: '邮箱格式不正确' });
@@ -433,7 +433,7 @@ function tryAutoUnfreezeOnLogin(user, loginIP, reasonLabel = '登录自动解冻
   }
 }
 
-router.post('/email-register', emailRegisterLimiter, async (req, res) => {
+router.post('/email-register', emailRegisterLimiter, csrfProtection, async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const displayName = String(req.body?.name || '').trim();
   const password = String(req.body?.password || '');
@@ -652,7 +652,7 @@ router.post('/generate-invite-code', requireAuth, csrfProtection, (req, res) => 
   }
 });
 
-router.post('/email-login', emailLoginLimiter, (req, res) => {
+router.post('/email-login', emailLoginLimiter, csrfProtection, (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
   if (!email || !password) {
@@ -791,7 +791,7 @@ router.post('/temp-login', tempLoginLimiter, (req, res) => {
 });
 
 // 登出
-router.get('/logout', (req, res) => {
+router.post('/logout', csrfProtection, (req, res) => {
   if (req.user) {
     db.addAuditLog(req.user.id, 'logout', `用户 ${req.user.username} 登出`, getClientIp(req));
   }

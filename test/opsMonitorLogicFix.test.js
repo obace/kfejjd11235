@@ -39,18 +39,11 @@ async function withMockedModule(modulePath, mocks, fn) {
   }
 }
 
-test('monitor api requires admin role', async (t) => {
+test('monitor api requires auth and denies unauthenticated requests', async (t) => {
   await withMockedModule('../src/routes/monitorApi', {
     '../src/middleware/auth': {
-      requireAuth: (req, _res, next) => {
-        req.isAuthenticated = () => true;
-        req.user = { id: 2, username: 'u', is_admin: 0, is_blocked: 0 };
-        next();
-      },
-      requireAdmin: (req, res, next) => {
-        if (req.isAuthenticated() && req.user?.is_admin) return next();
-        return res.status(403).json({ error: '需要管理员权限' });
-      },
+      requireAuth: (_req, res) => res.status(401).json({ error: '未登录' }),
+      requireAdmin: (_req, res) => res.status(403).json({ error: '需要管理员权限' }),
     },
   }, async (router) => {
     const app = express();
@@ -59,7 +52,7 @@ test('monitor api requires admin role', async (t) => {
     t.after(() => new Promise((resolve) => server.close(resolve)));
 
     const resp = await fetch(`${baseUrl}/api/monitor/overview`);
-    assert.equal(resp.status, 403);
+    assert.equal(resp.status, 401);
   });
 });
 

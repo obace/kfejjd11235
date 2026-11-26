@@ -9,7 +9,7 @@
     "pm2:stop": "pm2 stop dayizi-panel",
     "pm2:restart": "pm2 restart dayizi-panel",
     "pm2:logs": "pm2 logs dayizi-panel",
-    "test": "node --test",
+    "test": "NODE_ENV=test node --test",
     "build:css": "npx tailwindcss -o public/css/tailwind.min.css --minify"
   },
   "keywords": [],

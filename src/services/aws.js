@@ -792,12 +792,12 @@ async function listAllInstances() {
 }
 
 module.exports = {
-  getAwsConfig, setAwsConfig,
+  setAwsConfig,
   listEC2Instances, swapEC2Ip, terminateEC2Instance, startEC2Instance, stopEC2Instance,
   listLightsailInstances, swapLightsailIp,
   startLightsailInstance, stopLightsailInstance, terminateLightsailInstance,
   swapNodeIp,
-  getLatestUbuntuAmi, launchEC2Instance, launchLightsailInstance, openLightsailPort,
+  launchEC2Instance, launchLightsailInstance, openLightsailPort,
   waitForInstanceRunning, tagInstance, listAllInstances,
   ALL_AWS_REGIONS, AWS_REGION_META,
 };

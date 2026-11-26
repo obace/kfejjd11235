@@ -299,82 +299,62 @@ async function sftpWriteFile(ssh, remotePath, content) {
 // ========== SSH 推送配置 ==========
 
 // 将配置推送到节点并重启 xray（优先通过 Agent，SSH 后备）
-async function pushConfigToNode(node, config) {
-  const configJson = typeof config === 'string' ? config : JSON.stringify(config, null, 2);
-
-  // 优先通过 Agent 推送
-  const agentWs = require('./agent-ws'); // 延迟加载避免循环依赖
-  if (agentWs.isAgentOnline(node.id)) {
-    try {
-      const result = await agentWs.sendCommand(node.id, {
-        type: 'update_config',
-        config: config,
-      });
-      if (result.success) {
-        return true;
-      }
-      logger.warn({ nodeId: node.id, nodeName: node.name, error: result.error }, '推送配置 Agent 失败，回退 SSH');
-    } catch (e) {
-      logger.warn({ err: e, nodeId: node.id, nodeName: node.name }, '推送配置 Agent 异常，回退 SSH');
-    }
-  }
-
-  // SSH 后备
+async function withSsh(target, fn) {
   const ssh = new NodeSSH();
   try {
-    const connectOpts = buildSshConnectOpts(node);
-
-    await ssh.connect(connectOpts);
-
-    const configPath = node.xray_config_path || '/usr/local/etc/xray/config.json';
-
-    await sftpWriteFile(ssh, configPath, configJson);
-    const result = await ssh.execCommand('systemctl restart xray && sleep 1 && systemctl is-active --quiet xray && echo OK || echo FAIL');
-
-    const ok = result.stdout.trim() === 'OK';
-    return ok;
-  } catch (err) {
-    logger.error({ err, nodeId: node.id, nodeName: node.name }, '推送配置 SSH 失败');
-    return false;
+    await ssh.connect(buildSshConnectOpts(target));
+    return await fn(ssh);
   } finally {
     ssh.dispose();
   }
 }
 
-// 将 Hy2 配置推送到节点并重启 hysteria（优先通过 Agent，SSH 后备）
-async function pushHy2ConfigToNode(node, configYaml) {
-  // 优先通过 Agent 推送
-  const agentWs = require('./agent-ws');
+async function pushConfigViaAgentOrSsh(node, { wsType, wsConfig, remotePath, fileContent, serviceName, label }) {
+  const agentWs = require('./agent-ws'); // 延迟加载避免循环依赖
   if (agentWs.isAgentOnline(node.id)) {
     try {
-      const result = await agentWs.sendCommand(node.id, {
-        type: 'update_hy2_config',
-        config: configYaml,
-      });
-      if (result.success) {
-        return true;
-      }
-      logger.warn({ nodeId: node.id, nodeName: node.name, error: result.error }, '推送Hy2配置 Agent 失败，回退 SSH');
+      const result = await agentWs.sendCommand(node.id, { type: wsType, config: wsConfig });
+      if (result.success) return true;
+      logger.warn({ nodeId: node.id, nodeName: node.name, error: result.error }, `${label} Agent 失败，回退 SSH`);
     } catch (e) {
-      logger.warn({ err: e, nodeId: node.id, nodeName: node.name }, '推送Hy2配置 Agent 异常，回退 SSH');
+      logger.warn({ err: e, nodeId: node.id, nodeName: node.name }, `${label} Agent 异常，回退 SSH`);
     }
   }
 
-  // SSH 后备
-  const ssh = new NodeSSH();
   try {
-    const connectOpts = buildSshConnectOpts(node);
-
-    await ssh.connect(connectOpts);
-    await sftpWriteFile(ssh, '/etc/hysteria/config.yaml', configYaml);
-    const result = await ssh.execCommand('systemctl restart hysteria-server && sleep 1 && systemctl is-active --quiet hysteria-server && echo OK || echo FAIL');
-    return result.stdout.trim() === 'OK';
+    return await withSsh(node, async (ssh) => {
+      await sftpWriteFile(ssh, remotePath, fileContent);
+      const result = await ssh.execCommand(`systemctl restart ${serviceName} && sleep 1 && systemctl is-active --quiet ${serviceName} && echo OK || echo FAIL`);
+      return result.stdout.trim() === 'OK';
+    });
   } catch (err) {
-    logger.error({ err, nodeId: node.id, nodeName: node.name }, '推送Hy2配置 SSH 失败');
+    logger.error({ err, nodeId: node.id, nodeName: node.name }, `${label} SSH 失败`);
     return false;
-  } finally {
-    ssh.dispose();
   }
+}
+
+async function pushConfigToNode(node, config) {
+  const configJson = typeof config === 'string' ? config : JSON.stringify(config, null, 2);
+  return pushConfigViaAgentOrSsh(node, {
+    wsType: 'update_config',
+    wsConfig: config,
+    remotePath: node.xray_config_path || '/usr/local/etc/xray/config.json',
+    fileContent: configJson,
+    serviceName: 'xray',
+    label: '推送配置',
+  });
+}
+
+// 将 Hy2 配置推送到节点并重启 hysteria（优先通过 Agent，SSH 后备）
+async function pushHy2ConfigToNode(node, configYaml) {
+  return pushConfigViaAgentOrSsh(node, {
+    wsType: 'update_hy2_config',
+    wsConfig: configYaml,
+    remotePath: '/etc/hysteria/config.yaml',
+    fileContent: configYaml,
+    serviceName: 'hysteria-server',
+    label: '推送Hy2配置',
+  });
 }
 
 // 同步某个节点的配置（用于新用户注册、轮换等场景）
@@ -1333,4 +1313,4 @@ async function deployHy2Node(sshInfo, db) {
 
 // syncAllNodesConfig 对外暴露去抖版本
 const syncAllNodesConfig = syncAllNodesConfigDebounced;
-module.exports = { deployNode, deploySsNode, deployDualNode, deployHy2Node, detectRegion, generateNodeName, syncNodeConfig, syncAllNodesConfig, pushConfigToNode, buildHy2Config };
+module.exports = { deployNode, deploySsNode, deployDualNode, deployHy2Node, generateNodeName, syncNodeConfig, syncAllNodesConfig };

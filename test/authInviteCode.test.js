@@ -43,6 +43,7 @@ test('POST /auth/send-email-code rejects non-first-user registration without inv
 
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => { req.session = req.session || { csrfToken: 'test-csrf-token' }; next(); });
   app.use('/auth', loadFreshAuthRoutes());
 
   const { server, baseUrl } = await startServer(app);
@@ -50,7 +51,7 @@ test('POST /auth/send-email-code rejects non-first-user registration without inv
 
   const resp = await fetch(`${baseUrl}/auth/send-email-code`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-csrf-token': 'test-csrf-token' },
     body: JSON.stringify({ email: 'new@example.com' }),
   });
   assert.equal(resp.status, 200);
@@ -87,6 +88,7 @@ test('POST /auth/email-register consumes invite code for non-first user registra
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use((req, _res, next) => {
+    req.session = req.session || { csrfToken: 'test-csrf-token' };
     req.logIn = (user, cb) => {
       req.user = user;
       cb(null);
@@ -100,7 +102,7 @@ test('POST /auth/email-register consumes invite code for non-first user registra
 
   const sendResp = await fetch(`${baseUrl}/auth/send-email-code`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-csrf-token': 'test-csrf-token' },
     body: JSON.stringify({ email: 'new@example.com', inviteCode: 'INVITE24' }),
   });
   assert.equal(sendResp.status, 200);
@@ -111,6 +113,7 @@ test('POST /auth/email-register consumes invite code for non-first user registra
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
+      _csrf: 'test-csrf-token',
       email: 'new@example.com',
       inviteCode: 'invite24',
       code: '123456',
@@ -203,6 +206,7 @@ test('POST /auth/send-email-code rejects when invite registration is closed', as
 
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => { req.session = req.session || { csrfToken: 'test-csrf-token' }; next(); });
   app.use('/auth', loadFreshAuthRoutes());
 
   const { server, baseUrl } = await startServer(app);
@@ -210,7 +214,7 @@ test('POST /auth/send-email-code rejects when invite registration is closed', as
 
   const resp = await fetch(`${baseUrl}/auth/send-email-code`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-csrf-token': 'test-csrf-token' },
     body: JSON.stringify({ email: 'new@example.com', inviteCode: 'INVITE24' }),
   });
   assert.equal(resp.status, 200);
@@ -238,6 +242,7 @@ test('POST /auth/send-email-code returns smtp auth failure details', async (t) =
 
   const app = express();
   app.use(express.json());
+  app.use((req, _res, next) => { req.session = req.session || { csrfToken: 'test-csrf-token' }; next(); });
   app.use('/auth', loadFreshAuthRoutes());
 
   const { server, baseUrl } = await startServer(app);
@@ -245,7 +250,7 @@ test('POST /auth/send-email-code returns smtp auth failure details', async (t) =
 
   const resp = await fetch(`${baseUrl}/auth/send-email-code`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-csrf-token': 'test-csrf-token' },
     body: JSON.stringify({ email: 'new@gmail.com', inviteCode: 'INVITE24' }),
   });
   assert.equal(resp.status, 200);
