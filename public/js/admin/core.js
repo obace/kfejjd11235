@@ -27,15 +27,12 @@ function switchTab(name) {
   if (sel) sel.value = name;
   location.hash = name;
   if (name === 'aws') callIfFn('loadAwsConfig');
-  if (name === 'ops') callIfFn('loadOpsConfig');
-  if (name === 'orders') callIfFn('loadOrders', 1);
   if (name === 'logs') callIfFn('loadLogs', 1);
   if (name === 'abuse') {
     if (typeof window.switchSecurityView === 'function') callIfFn('switchSecurityView', 'substats');
     else callIfFn('loadSubStats', 1);
   }
   if (name === 'users') callIfFn('loadUsers', 1);
-  if (name === 'invites') callIfFn('loadInviteRelations', 1);
   if (name === 'traffic') { callIfFn('loadTraffic', 1); callIfFn('loadTrafficChart'); }
   if (name === 'backup') callIfFn('loadBackups');
   if (name === 'settings') callIfFn('loadAutomationConfig');

@@ -486,50 +486,6 @@ router.post('/agents/update-all', async (req, res) => {
   }
 });
 
-// POST /ops/api/diary — AI 写入运营日记
-router.post('/diary', (req, res) => {
-  try {
-    const { content, category, mood } = req.body;
-    if (!content || typeof content !== 'string' || content.trim().length === 0) {
-      return res.status(400).json({ error: '缺少 content' });
-    }
-
-    const trimmedContent = content.trim();
-    if (/^[\s]*(\$\w+|\$\{\w+\}|\{\{\w+\}\}|<\w+>)[\s]*$/.test(trimmedContent)) {
-      return res.status(400).json({ error: 'content 不能是占位符' });
-    }
-
-    const validCategories = ['ops', 'repair', 'swap_ip', 'deploy', 'scale', 'patrol', 'milestone'];
-    const cat = validCategories.includes(category) ? category : 'ops';
-    const m = (mood && typeof mood === 'string') ? mood.slice(0, 4) : '🐱';
-
-    db.addDiaryEntry(trimmedContent.slice(0, 5000), m, cat);
-    db.addAuditLog(null, 'ops_diary_write', `OPS API 写入日记 [${cat}]`, 'ops-api');
-    // 巡检类日记同时写入 patrol 审计事件，供飘窗统计
-    if (cat === 'patrol') {
-      db.addAuditLog(null, 'patrol', content.slice(0, 200), 'system');
-    }
-    res.json({ success: true });
-  } catch (err) {
-    logger.error({ err }, 'OPS API diary write 失败');
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// GET /ops/api/diary — 读取运营日记
-router.get('/diary', (req, res) => {
-  try {
-    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
-    const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
-    const result = db.getDiaryEntries(limit, offset);
-    const stats = db.getDiaryStats();
-    res.json({ ...result, stats });
-  } catch (err) {
-    logger.error({ err }, 'OPS API diary read 失败');
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 // GET /ops/api/security/multi-node-overview — 并发多节点安全事件概览
 router.get('/security/multi-node-overview', (req, res) => {
   try {

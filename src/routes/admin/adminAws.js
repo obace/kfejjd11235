@@ -158,18 +158,28 @@ router.post('/nodes/:id/aws-bind', asyncHandler(async (req, res) => {
   res.json({ ok: true });
 }));
 
+async function executeNodeSwapIp(req, res, node, instanceId, type, region, accountId) {
+  db.addAuditLog(req.user.id, 'aws_swap_ip', `手动换 IP: ${node.name}`, req.clientIp || req.ip);
+  const result = await aws.swapNodeIp(node, instanceId, type, region, accountId);
+  if (result.success) {
+    clearAwsInstancesCache();
+    notify.ops(`🔄 ${node.name} 手动换 IP: ${result.oldIp} → ${result.newIp}`).catch(() => {});
+  }
+  return res.json(result);
+}
+
 router.post('/nodes/:id/swap-ip', async (req, res) => {
   const id = parseIntId(req.params.id);
   if (!id) return res.status(400).json({ error: '参数错误' });
   const node = db.getNodeById(id);
   if (!node) return res.status(404).json({ error: '节点不存在' });
   if (!node.aws_instance_id) return res.status(400).json({ error: '节点未绑定 AWS 实例' });
-  db.addAuditLog(req.user.id, 'aws_swap_ip', `手动换 IP: ${node.name}`, req.clientIp || req.ip);
   try {
-    const result = await aws.swapNodeIp(node, node.aws_instance_id, node.aws_type, node.aws_region, node.aws_account_id);
-    if (result.success) { clearAwsInstancesCache(); notify.ops(`🔄 ${node.name} 手动换 IP: ${result.oldIp} → ${result.newIp}`).catch(() => {}); }
-    res.json(result);
-  } catch (e) { res.status(500).json({ error: '换 IP 失败' }); }
+    return await executeNodeSwapIp(req, res, node, node.aws_instance_id, node.aws_type, node.aws_region, node.aws_account_id);
+  } catch (e) {
+    logger.error({ err: e }, 'AWS 换 IP 失败');
+    return res.status(500).json({ error: '换 IP 失败' });
+  }
 });
 
 router.get('/aws/all-instances', async (req, res) => {
@@ -262,12 +272,7 @@ router.post('/aws/swap-ip', async (req, res) => {
   const node = allNodes.find(n => n.aws_instance_id === instanceId);
   try {
     if (node) {
-      const result = await aws.swapNodeIp(node, instanceId, type, region, accountId ? parseInt(accountId) : undefined);
-      if (result.success) {
-        clearAwsInstancesCache();
-        notify.ops(`🔄 ${node.name} 手动换 IP: ${result.oldIp} → ${result.newIp}`).catch(() => {});
-      }
-      res.json(result);
+      return await executeNodeSwapIp(req, res, node, instanceId, type, region, accountId ? parseInt(accountId) : undefined);
     } else {
       let result;
       if (type === 'lightsail') result = await aws.swapLightsailIp(instanceId, region, accountId ? parseInt(accountId) : undefined);

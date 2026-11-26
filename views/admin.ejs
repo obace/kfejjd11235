@@ -45,14 +45,11 @@
         <!-- 核心 -->
         <button class="tab-btn active text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="nodes" role="tab" aria-selected="true" aria-controls="tab-panel-nodes" id="tab-btn-nodes">🌐 节点</button>
         <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="users" role="tab" aria-selected="false" aria-controls="tab-panel-users" id="tab-btn-users">👥 用户</button>
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="invites" role="tab" aria-selected="false" aria-controls="tab-panel-invites" id="tab-btn-invites">🎟 邀请</button>
         <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="traffic" role="tab" aria-selected="false" aria-controls="tab-panel-traffic" id="tab-btn-traffic">📊 流量</button>
         <span class="hidden sm:block w-px bg-white/10 my-1.5 mx-1 flex-shrink-0"></span>
         <!-- 监控 -->
         <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="logs" role="tab" aria-selected="false" aria-controls="tab-panel-logs" id="tab-btn-logs">📋 日志</button>
         <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="abuse" role="tab" aria-selected="false" aria-controls="tab-panel-abuse" id="tab-btn-abuse">🛡️ 安全</button>
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="ops" role="tab" aria-selected="false" aria-controls="tab-panel-ops" id="tab-btn-ops">🧠 运维</button>
-        <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="orders" role="tab" aria-selected="false" aria-controls="tab-panel-orders" id="tab-btn-orders">💳 订单</button>
         <span class="hidden sm:block w-px bg-white/10 my-1.5 mx-1 flex-shrink-0"></span>
         <!-- 配置 -->
         <button class="tab-btn text-sm px-3 sm:px-4 py-2 rounded-xl transition whitespace-nowrap" data-tab="notify" role="tab" aria-selected="false" aria-controls="tab-panel-notify" id="tab-btn-notify">🔔 通知</button>
@@ -68,10 +65,7 @@
   <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6">
     <%- include('partials/admin-nodes') %>
     <%- include('partials/admin-sections') %>
-    <%- include('partials/admin-invites') %>
     <%- include('partials/admin-traffic') %>
-    <%- include('partials/admin-ops') %>
-    <%- include('partials/admin-orders') %>
     <%- include('partials/admin-backup') %>
   </main>
 

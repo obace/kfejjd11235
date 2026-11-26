@@ -140,7 +140,6 @@ app.use('/admin/api', adminLimiter, csrfProtection, adminApiRoutes);
 app.use('/admin', csrfProtection, adminRoutes);
 app.use('/ops/api', require('./routes/opsApi'));
 app.use('/api/agent', require('./routes/agentApi'));
-app.use('/payment', require('./routes/payment'));
 
 const subscriptionRoutes = require('./routes/subscription');
 const statsRoutes = require('./routes/stats');

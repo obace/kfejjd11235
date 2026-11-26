@@ -697,16 +697,6 @@
 
     loadTrafficDetail = function(){};
 
-    // 能量兑换流量：检测开关后显示按钮，点击跳转兑换页
-    (function initExchange() {
-      const btn = document.getElementById('btn-exchange');
-      if (!btn) return;
-      fetch('/payment/packages', { cache: 'no-store' }).then(r => r.json()).then(d => {
-        if (!d.ok || !d.enabled) return;
-        btn.style.display = '';
-        btn.addEventListener('click', () => { window.location.href = '/payment'; });
-      }).catch(() => {});
-    })();
   </script>
 
   <style nonce="<%= nonce %>">
