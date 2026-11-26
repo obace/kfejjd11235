@@ -258,10 +258,12 @@ function buildXrayConfig(port, clients, outbounds, realityOpts) {
     inbounds: [
       {
         port,
+        listen: '0.0.0.0',
         protocol: 'vless',
         tag: 'vless-in',
         settings: { clients, decryption: 'none' },
-        streamSettings
+        streamSettings,
+        sniffing: { enabled: true, destOverride: ['http', 'tls', 'quic'] }
       },
       {
         listen: '127.0.0.1', port: 10085,
@@ -408,19 +410,17 @@ async function syncNodeConfig(node, db) {
     const ssOutbounds = buildOutboundsBySocks(node.socks5_host, node.socks5_port, node.socks5_user, node.socks5_pass);
     const config = buildSsXrayConfig(node.port, clients, node.ss_method || 'aes-256-gcm', ssOutbounds);
 
-    // 如果有同机 VLESS 伙伴节点，生成双协议配置
+    // 如果有同机 VLESS 伙伴节点，始终生成双协议配置（即使一侧暂无用户也不降级覆盖）
     const peerNode = findPeerNode(node, db);
     if (peerNode) {
       const vlessUuids = db.getNodeAllUserUuids(peerNode.id);
-      if (vlessUuids.length > 0) {
-        const vlessClients = vlessUuids.map(u => ({
-          id: u.uuid, level: 0, email: makeEmail(u.user_id, 'vless')
-        }));
-        const outbounds = buildOutboundsBySocks(peerNode.socks5_host, peerNode.socks5_port, peerNode.socks5_user, peerNode.socks5_pass);
-        const realityOpts = peerNode.reality_private_key ? { privateKey: peerNode.reality_private_key, sni: peerNode.sni || 'www.microsoft.com', shortId: peerNode.reality_short_id } : null;
-        const dualConfig = buildDualXrayConfig(peerNode.port, node.port, vlessClients, clients, node.ss_method || 'aes-256-gcm', outbounds, realityOpts);
-        return await pushConfigToNode(node, dualConfig);
-      }
+      const vlessClients = vlessUuids.map(u => ({
+        id: u.uuid, level: 0, email: makeEmail(u.user_id, 'vless')
+      }));
+      const outbounds = buildOutboundsBySocks(peerNode.socks5_host, peerNode.socks5_port, peerNode.socks5_user, peerNode.socks5_pass);
+      const realityOpts = peerNode.reality_private_key ? { privateKey: peerNode.reality_private_key, sni: peerNode.sni || 'www.microsoft.com', shortId: peerNode.reality_short_id } : null;
+      const dualConfig = buildDualXrayConfig(peerNode.port, node.port, vlessClients, clients, node.ss_method || 'aes-256-gcm', outbounds, realityOpts);
+      return await pushConfigToNode(node, dualConfig);
     }
     return await pushConfigToNode(node, config);
   }
@@ -434,17 +434,15 @@ async function syncNodeConfig(node, db) {
 
   const realityOpts = node.reality_private_key ? { privateKey: node.reality_private_key, sni: node.sni || 'www.microsoft.com', shortId: node.reality_short_id } : null;
 
-  // 如果有同机 SS 伙伴节点，生成双协议配置
+  // 如果有同机 SS 伙伴节点，始终生成双协议配置（即使一侧暂无用户也不降级覆盖）
   const peerNode = findPeerNode(node, db);
   if (peerNode) {
     const ssUuids = db.getNodeAllUserUuids(peerNode.id);
-    if (ssUuids.length > 0) {
-      const ssClients = ssUuids.map(u => ({
-        password: u.uuid, email: makeEmail(u.user_id, 'ss')
-      }));
-      const dualConfig = buildDualXrayConfig(node.port, peerNode.port, clients, ssClients, peerNode.ss_method || 'aes-256-gcm', outbounds, realityOpts);
-      return await pushConfigToNode(node, dualConfig);
-    }
+    const ssClients = ssUuids.map(u => ({
+      password: u.uuid, email: makeEmail(u.user_id, 'ss')
+    }));
+    const dualConfig = buildDualXrayConfig(node.port, peerNode.port, clients, ssClients, peerNode.ss_method || 'aes-256-gcm', outbounds, realityOpts);
+    return await pushConfigToNode(node, dualConfig);
   }
 
   const config = buildXrayConfig(node.port, clients, outbounds, realityOpts);
@@ -488,7 +486,7 @@ function syncAllNodesConfigDebounced(db) {
 }
 
 async function _syncAllNodesConfigImpl(db) {
-  const nodes = db.getAllNodes(true);
+  const nodes = db.getAllNodes(true).filter(n => !n.is_manual);
   let success = 0, failed = 0;
   const CONCURRENCY = 5;
   for (let i = 0; i < nodes.length; i += CONCURRENCY) {
@@ -505,6 +503,17 @@ async function _syncAllNodesConfigImpl(db) {
 }
 
 // ========== 启用 BBR ==========
+
+// 检测目标机器端口是否可用，若被占用则重新随机选择
+async function pickAvailablePort(ssh, preferredPort, minPort = 20000, maxPort = 50000) {
+  let candidate = preferredPort;
+  for (let i = 0; i < 10; i++) {
+    const check = await ssh.execCommand(`ss -tuln 2>/dev/null | grep -qE "[:.]${candidate}\\b" && echo BUSY || echo FREE`);
+    if (check.stdout.trim() !== 'BUSY') return candidate;
+    candidate = randomPort(minPort, maxPort);
+  }
+  return candidate;
+}
 
 async function enableBBR(ssh) {
   await ssh.execCommand(
@@ -548,7 +557,7 @@ function buildSshConnectOpts(sshInfo) {
 
 async function deployNode(sshInfo, db) {
   const uuid = uuidv4();
-  const port = randomPort(20000, 50000); // 使用 20000-50000 范围内的随机端口
+  let port = randomPort(20000, 50000); // 使用 20000-50000 范围内的随机端口
 
   const { displayGeo, isHomeNetwork } = await resolveDeployGeo(sshInfo);
 
@@ -579,6 +588,11 @@ async function deployNode(sshInfo, db) {
 
     logger.info({ nodeName: name, host: sshInfo.host }, '节点部署开始');
     await ssh.connect(connectOpts);
+    const freePort = await pickAvailablePort(ssh, port, 20000, 50000);
+    if (freePort !== port) {
+      port = freePort;
+      db.updateNode(nodeId, { port });
+    }
     await enableBBR(ssh);
 
     // 先安装 xray
@@ -600,7 +614,7 @@ async function deployNode(sshInfo, db) {
       const realityPublicKey = pubMatch[1];
       const realityShortId = crypto.randomBytes(4).toString('hex');
       const sni = 'www.microsoft.com';
-      db.updateNode(nodeId, { reality_private_key: realityPrivateKey, reality_public_key: realityPublicKey, reality_short_id: realityShortId, sni });
+      db.updateNode(nodeId, { security: 'reality', reality_private_key: realityPrivateKey, reality_public_key: realityPublicKey, reality_short_id: realityShortId, sni });
       realityOpts = { privateKey: realityPrivateKey, sni, shortId: realityShortId };
     }
 
@@ -815,7 +829,8 @@ function buildDualXrayConfig(vlessPort, ssPort, vlessClients, ssClients, ssMetho
       {
         port: vlessPort, listen: '0.0.0.0', protocol: 'vless', tag: 'vless-in',
         settings: { clients: vlessClientsWithFlow, decryption: 'none' },
-        streamSettings: vlessStreamSettings
+        streamSettings: vlessStreamSettings,
+        sniffing: { enabled: true, destOverride: ['http', 'tls', 'quic'] }
       },
       {
         port: ssPort, listen: '::', protocol: 'shadowsocks', tag: 'ss-in',
@@ -1036,7 +1051,7 @@ async function deployDualNode(sshInfo, db) {
       const realityPublicKey = pubMatch[1];
       const realityShortId = crypto.randomBytes(4).toString('hex');
       const sni = 'www.microsoft.com';
-      db.updateNode(vlessNodeId, { reality_private_key: realityPrivateKey, reality_public_key: realityPublicKey, reality_short_id: realityShortId, sni });
+      db.updateNode(vlessNodeId, { security: 'reality', reality_private_key: realityPrivateKey, reality_public_key: realityPublicKey, reality_short_id: realityShortId, sni });
       realityOpts = { privateKey: realityPrivateKey, sni, shortId: realityShortId };
     }
 
